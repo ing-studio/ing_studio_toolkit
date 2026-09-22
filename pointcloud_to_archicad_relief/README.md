@@ -30,7 +30,7 @@ the cached steps and takes about 2–4 minutes, most of it spent in Archicad.
 
 ## Folders
 ```
-relief_pipeline\
+pointcloud_to_archicad_relief\
   relief.bat               terminal entry
   config\default.json      all settings with their defaults (documented inline)
   config\project.json      your project's values - not in git; start from config\examples\
@@ -170,7 +170,7 @@ relief\
 ## Functions
 Every function can be imported once the pipeline folder is on `sys.path`, for example in QGIS Python:
 ```python
-import sys; sys.path.insert(0, r"C:\path\to\relief_pipeline")
+import sys; sys.path.insert(0, r"C:\path\to\pointcloud_to_archicad_relief")
 from relief.config import load_config
 from relief.job import discover_inputs
 from relief import pipeline
