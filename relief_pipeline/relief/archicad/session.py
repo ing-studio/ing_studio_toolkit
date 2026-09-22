@@ -125,7 +125,8 @@ def connect_project(job, pln):
         register_tapir()
     exe = tool(job.cfg, "archicad_exe")
     log(f"archicad: starting {exe} on {pln} (answer library dialogs if asked; any other dialog stops the pipeline) ...")
-    proc = subprocess.Popen([exe, str(pln)], close_fds=True)
+    # started in the project's folder: Archicad keeps its start folder open, which must not be the code folder
+    proc = subprocess.Popen([exe, str(pln)], close_fds=True, cwd=str(Path(pln).parent))
     watch = DialogWatch(proc.pid, job.pln_dir)
     ac = _wait_for_project(host, pln, proc, watch)
     time.sleep(10)  # add-on version warnings appear shortly after the project is loaded
