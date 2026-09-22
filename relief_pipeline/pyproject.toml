@@ -1,0 +1,21 @@
+[project]
+name = "relief-pipeline"
+dynamic = ["version"]
+description = "Point cloud + Archicad project -> relief-only Archicad project: one terrain mesh and contour layers cut from it"
+readme = "README.md"
+requires-python = ">=3.10"
+# GDAL (osgeo) and PDAL come with QGIS; setup_env.ps1 builds an environment without QGIS (no PDAL)
+dependencies = ["numpy", "scipy", "shapely>=2.0", "matplotlib", "pandas", "gdal"]
+
+[project.scripts]
+relief = "relief.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["relief*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "relief.__version__" }

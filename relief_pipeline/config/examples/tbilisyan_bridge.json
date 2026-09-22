@@ -1,0 +1,38 @@
+{
+  "_about": "Example project config (Tbilisyan bridge, 2026_48). Copy to config/project.json and adapt: merged over default.json.",
+  "paths": {
+    "source_cloud": "\\\\TRUENAS\\Main\\ing_ALL\\1_PROJECTS\\2026_48_Tbilisyan_bridge\\2.References\\2.4.Survey\\2026_48_Tbilisyan_bridge - Cloud.e57",
+    "qa_ground_points_txt": "\\\\TRUENAS\\Main\\ing_ALL\\1_PROJECTS\\2026_48_Tbilisyan_bridge\\2.References\\2.4.Survey\\2026_48_Tbilisyan_bridge_ground_ponits.txt"
+  },
+  "placement": {
+    "point_cloud_libpart_name": "2026_48_Tbilisyan_bridge - Cloud_0"
+  },
+  "qa": {
+    "zooms": {
+      "bridge_channel": [
+        115,
+        -75,
+        320,
+        125
+      ],
+      "town_south": [
+        150,
+        -300,
+        400,
+        -60
+      ],
+      "steep_quarry": [
+        340,
+        40,
+        600,
+        300
+      ],
+      "nw_slope": [
+        -150,
+        150,
+        150,
+        420
+      ]
+    }
+  }
+}

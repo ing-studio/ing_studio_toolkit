@@ -1,0 +1,8 @@
+# local data and results of a project - never committed
+input/
+output/
+work/
+config/project.json
+# Python
+__pycache__/
+*.pyc
