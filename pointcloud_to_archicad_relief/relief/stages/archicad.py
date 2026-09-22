@@ -9,7 +9,6 @@ so with archicad.contours_3d every line is also written as a thin upright Morph 
 real 3D geometry: turning a layer off hides both. Everything on the relief layers is deleted first, so the file
 always holds exactly one relief.
 """
-import json
 import math
 import shutil
 from pathlib import Path
@@ -22,7 +21,7 @@ from ..archicad.session import connect_project, forget_project, project_is_open
 from ..config import cut_sizes, settings
 from ..geometry.transform import apply_transform, xy_to_pln
 from ..io.relief_data import read_relief
-from ..util import file_signature, load_json, log, save_json, tool
+from ..util import detail, file_signature, load_json, log, ok, save_json, skip, tool, warn
 from .names import ARCHICAD_RESULT, CONTOURS_SUMMARY, RELIEF_FILE
 from .reference import load_placement
 
@@ -56,7 +55,7 @@ def run(job, force=False):
     prev = load_json(result_path) or {}
     if not force and prev.get("saved") and prev.get("relief") == relief_sig and prev.get("settings") == wanted \
             and Path(job.output_pln).exists():
-        log(f"archicad: skip, {job.output_pln} already holds this relief (use --force to redo)")
+        skip(f"archicad: {Path(job.output_pln).name} already holds this relief (--force redoes it)")
         return
     summary = load_json(job.p(CONTOURS_SUMMARY)) or {}
     if abs(ref["source_to_sea_level"] - summary.get("source_to_sea_level", 1e9)) > 0.01:
@@ -70,7 +69,7 @@ def run(job, force=False):
     baseline = [e["elementId"]["guid"] for e in ac.api("API.GetAllElements")["elements"]]
     story_level = el.story_level(ac, floor)
     if abs(story_level - source_story_level) > 1e-6:
-        log(f"archicad: WARNING story {floor} is at {story_level} m here but {source_story_level} m in the source PLN; "
+        warn(f"archicad: story {floor} is at {story_level} m here but {source_story_level} m in the source PLN; "
             "heights are written relative to project zero")
 
     result = {"output_pln": job.output_pln, "source_pln": job.pln, "saved": False, "relief": relief_sig,
@@ -91,7 +90,7 @@ def run(job, force=False):
     all_layers = el.layer_indices(ac)
     li = {k: all_layers[n] for k, n in layer_names.items()}
     result["layers"] = {layer_names[k]: i for k, i in li.items()}
-    log(f"archicad: layers {result['layers']}")
+    detail(f"archicad: layers {', '.join(result['layers'])}")
     mesh, layers = read_relief(job.p(RELIEF_FILE), list(sizes))
     bs = int(a["batch_size"])
 
@@ -130,7 +129,7 @@ def run(job, force=False):
     got = ((det[0] or {}).get("details") or {}).get("polygonCoordinates") or []
     readback = [abs(float(g.get("z", np.nan)) - s["z"]) for s, g in zip(data["polygonCoordinates"][:50], got)]
     readback_max = float(np.nanmax(readback)) if readback else None
-    log(f"archicad: mesh vertex read-back max |dz| = {readback_max}")
+    detail(f"archicad: mesh heights read back, largest difference {readback_max} m")
 
     # --- contour splines (the plan drawing), one layer per cut size
     for n, (label, lines) in enumerate(layers.items()):
@@ -157,7 +156,7 @@ def run(job, force=False):
             checkpoint(f"morphs_{label}", guids)
             checks[label] = el.check_3d_contours(ac, guids, items, elevs, t)
         result["contours_3d"] = checks
-        log(f"archicad: 3D contour height check {json.dumps(checks)}")
+        log("archicad: 3D contour heights " + ", ".join(f"{k} {'OK' if c['ok'] else 'WRONG'}" for k, c in checks.items()))
         bad = [n for n, ck in checks.items() if not ck["ok"]]
         if bad:
             raise ArchicadError(f"the 3D contour lines of {', '.join(bad)} are not at the height of their contour "
@@ -170,8 +169,11 @@ def run(job, force=False):
     expected_top = float(all_z.max() + t["oz"] - t["sz"])
     top_ok = bb is not None and abs(bb["zMax"] - expected_top) < 0.05
     counts = {k: len(v) for k, v in result["created"].items()}
-    log(f"archicad: created {counts}; mesh top zMax={bb and round(bb['zMax'], 3)} expected {expected_top:.3f} -> "
-        f"{'OK' if top_ok else 'CHECK'}; original elements missing: {len(missing)}")
+    lines = sum(v for k, v in counts.items() if k.startswith(("splines", "polylines")))
+    ribbons = sum(v for k, v in counts.items() if k.startswith("morphs"))
+    log(f"archicad: check: {counts.get('mesh', 0)} mesh, {lines:,} contour lines, {ribbons:,} 3D lines; mesh top at "
+        f"{bb and round(bb['zMax'], 3)} m ({'OK' if top_ok else f'expected {expected_top:.3f}'}); "
+        f"elements lost: {len(missing)}")
     if missing:
         raise ArchicadError(f"{len(missing)} original elements disappeared - project NOT saved; see {ARCHICAD_RESULT}")
     if not top_ok:
@@ -182,11 +184,11 @@ def run(job, force=False):
     try:
         ac.tapir("ChangeWindow", {"windowType": "FloorPlan", "storyIndex": floor}, timeout=3600)
     except ArchicadError as e:
-        log(f"archicad: could not switch to the floor plan before saving ({e}) - saving anyway")
+        warn(f"archicad: could not switch to the floor plan before saving ({e}) - saving anyway")
     ac.watch.check()
     ac.tapir("SaveProject", timeout=3600)
     ac.watch.check()
-    log(f"archicad: project saved: {job.output_pln}")
+    ok(f"archicad: saved {job.output_pln}")
     result.update({"saved": True, "elements_after": len(after), "created_counts": counts,
                    "mesh_points": int(len(mesh["points"])), "mesh_bbox": bb, "mesh_expected_top_z": expected_top,
                    "mesh_vertex_readback_max_dz": readback_max, "mesh_level": mesh_level,

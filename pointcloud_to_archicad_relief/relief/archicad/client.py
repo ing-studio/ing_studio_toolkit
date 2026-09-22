@@ -13,7 +13,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from ..util import log
+from ..util import error, log
 
 ARCHICAD_VERSION = 28
 PORTS = range(19723, 19745)
@@ -92,7 +92,7 @@ class DialogWatch:
                                     "was killed instead of quitting; deleting the leftover session folders of "
                                     "instances that are NOT running (%LOCALAPPDATA%\\Graphisoft\\Archicad__*) "
                                     "stops it coming back.")
-                    log(f"archicad: SAFETY STOP - {self.message}")
+                    error(f"archicad: SAFETY STOP - {self.message}")
                     break
                 kids = []
                 user32.EnumChildWindows(h, proto(lambda c, _: kids.append((c, cls(c), text(c))) or True), 0)
@@ -107,7 +107,7 @@ class DialogWatch:
                     continue
                 self.message = (f"Archicad (pid {self.pid}) shows a dialog '{text(h)}': {body}  -> pipeline stopped, "
                                 "nothing was saved. Read the dialog in Archicad and close that project WITHOUT saving.")
-                log(f"archicad: SAFETY STOP - {self.message}")
+                error(f"archicad: SAFETY STOP - {self.message}")
                 break
 
     def _keep_invalid_elements_report(self):

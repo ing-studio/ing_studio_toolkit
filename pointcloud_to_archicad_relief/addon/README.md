@@ -15,6 +15,7 @@ To uninstall, run `install.bat remove`.
 2. Click **Relief from point cloud**.
 3. Pick the point cloud file(s), or choose **No** to use the survey cloud set in `config\project.json`.
 4. The tool runs in its own window, so you can keep working.
-5. When it finishes, a message appears and `<project>_ReliefOnly.pln` is next to your project.
+5. When it finishes, a message appears. The result, `<project>_ReliefOnly.pln`, is in the `output` folder next to
+   your project.
 
 Teamwork projects are not supported. Save a solo copy of the project (`.pln`) and run the button there.

@@ -16,7 +16,7 @@ import urllib.request
 import winreg
 from pathlib import Path
 
-from ..util import PIPELINE_DIR, log, save_json
+from ..util import PIPELINE_DIR, log, save_json, warn
 from .client import ARCHICAD_VERSION, ArchicadError, archicad_running
 
 ADDON_DIR = PIPELINE_DIR / "addon"
@@ -134,7 +134,7 @@ def register_tapir(remove=False):
     log(f"addon: Tapir {TAPIR_VERSION} {'removed from' if remove else 'registered in'} the Archicad "
         f"{ARCHICAD_VERSION} Add-On Manager ({APX_TARGET})")
     if archicad_running():
-        log("addon: NOTE Archicad is running; it loads add-ons only at start - restart it to use Tapir")
+        warn("addon: Archicad is running; it loads add-ons only at start - restart it to use Tapir")
 
 
 def install_palette(remove=False):
@@ -149,7 +149,7 @@ def install_palette(remove=False):
         dst.write_text(src.read_text(encoding="utf-8").replace("__PIPELINE_DIR__", str(PIPELINE_DIR)), encoding="utf-8")
         log(f"addon: palette button installed: {dst}  (Tapir palette > Reload scripts)")
     if not remove and not shutil.which("uv") and not (Path.home() / ".local" / "bin" / "uv.exe").exists():
-        log("addon: NOTE Tapir runs palette scripts with 'uv', which was not found; Tapir offers to install it on "
+        warn("addon: Tapir runs palette scripts with 'uv', which was not found; Tapir offers to install it on "
             "first use (https://docs.astral.sh/uv/)")
 
 

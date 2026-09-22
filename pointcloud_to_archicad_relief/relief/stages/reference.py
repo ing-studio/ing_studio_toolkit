@@ -18,7 +18,7 @@ from ..archicad.client import ArchicadError, eid
 from ..archicad.elements import story_level as read_story_level
 from ..archicad.session import connect_project
 from ..geometry.transform import apply_transform
-from ..util import file_signature, load_json, log, save_json
+from ..util import detail, file_signature, load_json, log, save_json, skip, warn
 
 
 def source_bounds(job):
@@ -176,7 +176,7 @@ def run(job, force=False):
     ref, transform = load_json(path), load_json(job.p("transform.json"))
     if ref and transform and "transform" in transform and not force \
             and ref.get("source_pln") == file_signature(job.pln) and ref.get("inputs") == inputs:
-        log(f"reference: skip, placement of {job.pln} is already known")
+        skip("reference: placement already known")
         return
     log("reference: opening the source PLN to read placement and elevations (it is never saved)")
     ac = connect_project(job, job.pln)
@@ -227,7 +227,7 @@ def resolve_placement(ac, job, ref):
     log(f"reference: coordinates placement, offset {off}, rotation {pl.get('rotation_deg', 0.0)} deg, "
         f"Z {ref.get('source_z')}, floor {floor}")
     if not overlaps:
-        log("reference: WARNING - the relief does not overlap the existing model; check placement.offset "
+        warn("reference: the relief does not overlap the existing model; check placement.offset "
             f"(relief {tuple(round(v) for v in cloud_box.bounds)}, model {tuple(round(v) for v in model_box.bounds)})")
 
 
@@ -261,7 +261,7 @@ def derive_transform(ac, job, pc_guid):
         "origin": [ox, oy, oz], "angle_rad": angle, "angle_deg": math.degrees(angle), "api_bbox": target.tolist(),
         "best": {"error_m": err, "shift": shift_name, "angle_sign": sign, "z_includes_story": z_story},
         "transform": t, "candidates": [(round(c[0], 4), c[1], c[2], c[3]) for c in candidates]})
-    log(f"reference: point cloud origin=({ox:.3f},{oy:.3f},{oz:.3f}) angle={math.degrees(angle):.4f} deg floor={floor} "
+    detail(f"reference: point cloud origin=({ox:.3f},{oy:.3f},{oz:.3f}) angle={math.degrees(angle):.4f} deg floor={floor} "
         f"story={story_level}; best fit shift={shift_name} sign={sign} err={err:.3f} m")
     if err > job.cfg["placement"]["transform_tolerance_m"]:
         raise ArchicadError(f"No placement hypothesis matches the point cloud bounding box (best error {err:.3f} m). "

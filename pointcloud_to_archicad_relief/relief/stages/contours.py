@@ -9,6 +9,8 @@
 Results: <pln work>/relief.gpkg (for the Archicad and QA stages), contours_summary.json, and
 <name>_ReliefOnly_contours.dxf in the output folder (3D contours in PLN coordinates).
 """
+from pathlib import Path
+
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
 
@@ -18,7 +20,7 @@ from ..geometry.polyline import arc_length, crossing_pairs
 from ..geometry.raster import read_raster, sample_raster
 from ..geometry.smoothing import smooth_contour
 from ..io.relief_data import write_contours_dxf, write_relief
-from ..util import load_json, log, save_json
+from ..util import detail, load_json, log, save_json, skip, warn
 from .names import CONTOURS_SUMMARY, RELIEF_FILE
 from .reference import load_placement
 
@@ -39,8 +41,8 @@ def run(job, force=False):
     wanted = dict(settings(cfg, "mesh", "contours"), transform=t)
     previous = load_json(summary_path) or {}
     if not force and out_gpkg.exists() and abs(previous.get("source_to_sea_level", 1e9) - to_sea) < 1e-3 \
-            and previous.get("settings") == wanted:
-        log(f"contours: skip, {RELIEF_FILE} exists for this elevation reference and these settings")
+            and previous.get("settings") == wanted and Path(job.output_dxf).exists():
+        skip("contours: mesh and contours already built with these settings")
         return
 
     z, gt, _ = read_raster(job.c("dem_clean.tif"))
@@ -91,7 +93,7 @@ def run(job, force=False):
 
     write_relief(out_gpkg, mesh, layers, to_pz)
     write_contours_dxf(job.output_dxf, t, layers)
-    log(f"contours: wrote {out_gpkg} and {job.output_dxf}")
+    detail(f"contours: wrote {out_gpkg.name} and {job.output_dxf}")
 
     stats = {
         "source_to_sea_level": to_sea,
@@ -109,6 +111,12 @@ def run(job, force=False):
         "settings": wanted,
     }
     save_json(summary_path, stats)
-    for k, val in stats.items():
-        if k != "settings":
-            log(f"contours: {k} = {val}")
+    m, h = stats["mesh"], stats["line_height_error_on_mesh_m"] or {}
+    log(f"contours: mesh {m['interior_points']:,} points, {m['triangles']:,} triangles, {m['area_m2'] / 10000:.1f} ha; "
+        f"95% of it within {m['error_vs_dem_m']['p95']} m of the terrain model")
+    for label, info in stats["layers"].items():
+        log(f"contours: {label:5s} {info['lines']:>5,} lines")
+    log(f"contours: {n_culled:,} lines up to {smoothing['min_length_m']:g} m left out; lines sit within "
+        f"{h.get('p95')} m of the mesh (95%)")
+    crossings = stats[f"crossing_pairs_{finest}"]
+    (warn if crossings else log)(f"contours: {crossings} crossing lines")

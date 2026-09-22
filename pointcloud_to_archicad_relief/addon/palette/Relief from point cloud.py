@@ -5,7 +5,7 @@
 """Tapir palette button: build the relief of the open project with the relief pipeline.
 
 One terrain Mesh from the point cloud(s) and the contour layers cut from it are written into
-<project>_ReliefOnly.pln next to the project - a separate file; the open project is only read, never changed.
+output/<project>_ReliefOnly.pln next to the project - a separate file; the open project is only read, never changed.
 All the logic lives in the tool; this button only starts it (relief.bat <this project> [point clouds]).
 
 Installed into Documents/Tapir/custom-scripts by  relief.bat addon install  (which fills in PIPELINE_DIR).
@@ -84,7 +84,7 @@ def main():
         if not clouds:
             return
         cmd += list(clouds)
-    cmd += ["--out", folder, "--notify"]
+    cmd += ["--notify"]  # run in the project's folder: the results go to its "output" folder
 
     # own console window (a small launcher .cmd avoids cmd's quoting rules), so the progress is visible and
     # Archicad stays free; the pipeline shows a message when it is done
@@ -94,7 +94,7 @@ def main():
                         f"call {line}\r\necho.\r\npause\r\n", encoding="utf-8")
     os.startfile(str(launcher))
     messagebox.showinfo(title, "The relief pipeline is running in its own window.\n\n"
-                               f"Result: {Path(pln).stem}_ReliefOnly.pln next to the project\n"
+                               f"Result: output\\{Path(pln).stem}_ReliefOnly.pln next to the project\n"
                                "A message appears when it is finished.", parent=root)
 
 

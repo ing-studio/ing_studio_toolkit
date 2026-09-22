@@ -2,8 +2,8 @@
   "_about": "Defaults of the relief tool. Project-specific values go into config/project.json; any value can also be set on the command line (--set section.key=value). Keys starting with '_' are notes.",
 
   "paths": {
-    "_output_dir": "where the results go; null = the folder the command is run from",
-    "output_dir": null,
+    "_output_dir": "where the results go, relative to the folder the command is run from (or a full path)",
+    "output_dir": "output",
     "_work_dir": "cache of intermediate results (safe to delete); null = %LOCALAPPDATA%/ing_studio_toolkit/pointcloud_to_archicad_relief",
     "work_dir": null,
     "_source_cloud": "point cloud used when only a .pln is given (file or list of files)",

@@ -22,7 +22,7 @@ FILES: point cloud file(s) and/or Archicad project(s), in any order.
 Several point clouds are merged into one relief.
 Point clouds: E57 LAS LAZ PLY PCD PTS PTX XYZ TXT CSV ASC NEU.
 
-Result, in the current folder (or --out):
+Result, in an "output" folder where the command is run (or in --out DIR):
   <name>_ReliefOnly.pln            one terrain mesh + one contour layer per --contours size
   <name>_ReliefOnly_contours.dxf   the same contours as 3D lines
 
@@ -30,25 +30,33 @@ Examples:
   relief.bat survey.e57
   relief.bat project.pln survey.e57 --out D:\\results
   relief.bat survey.e57 --contours 0.5 1 5 --mesh-points 80000
+  relief.bat survey.e57 --min-line-length 20 --simplify-tolerance 1
   relief.bat survey.e57 --only contours --force
 """
 
 # (flag, config key, type, metavar, help, nargs) - the settings worth a flag; any other one via --set
 RELIEF_PARAMS = (
-    ("--contours", "contours.cut_sizes_m", float, "M", "contour intervals in metres, one layer each (default 1 3 5)", "+"),
-    ("--mesh-points", "mesh.target_points", int, "N", "max. number of mesh points: lighter or finer mesh (default 50000)", None),
+    ("--contours", "contours.cut_sizes_m", float, "M",
+     "contour line intervals in metres, one layer each (default: 1 3 5)", "+"),
+    ("--mesh-points", "mesh.target_points", int, "N",
+     "most points the terrain mesh may have: fewer = lighter file, more = finer detail (default: 50000)", None),
 )
 SMOOTHING_PARAMS = (
-    ("--reduce", "contours.smoothing.reduce_tolerance_m", float, "M", "Reduce tolerance before the curve (default 0)", None),
-    ("--min-length", "contours.smoothing.min_length_m", float, "M", "drop lines up to this length (default 10)", None),
-    ("--degree", "contours.smoothing.nurbs_degree", int, "N", "curve degree (default 3)", None),
-    ("--simplify", "contours.smoothing.simplify_tolerance_m", float, "M", "Simplify tolerance (default 0.5)", None),
+    ("--min-line-length", "contours.smoothing.min_length_m", float, "M",
+     "leave out contour lines up to this long: removes small bumps and dips (default: 10)", None),
+    ("--simplify-tolerance", "contours.smoothing.simplify_tolerance_m", float, "M",
+     "how far the smoothed line may move from the exact one: larger = smoother, fewer points (default: 0.5)", None),
+    ("--reduce-tolerance", "contours.smoothing.reduce_tolerance_m", float, "M",
+     "straighten the line before smoothing: 0 keeps every bend (default: 0)", None),
+    ("--curve-degree", "contours.smoothing.nurbs_degree", int, "N",
+     "smoothing curve degree: 1 = straight segments, 3 = smooth (default: 3)", None),
 )
 PLACEMENT_PARAMS = (
     ("--placement", "placement.mode", str, "MODE",
-     "with a .pln: auto (default) = like the point cloud object in it, else by coordinates | object | coordinates",
+     "with a .pln: auto = match the point cloud in the project if it has one, else coordinates | "
+     "object = must match it | coordinates = the cloud's own coordinates (default: auto)", None),
+    ("--story", "placement.floor_index", int, "N", "story the relief goes on, for coordinates placement (default: 0)",
      None),
-    ("--floor", "placement.floor_index", int, "N", "story index for coordinates placement (default 0)", None),
 )
 PARAMS = RELIEF_PARAMS + SMOOTHING_PARAMS + PLACEMENT_PARAMS
 
@@ -71,16 +79,15 @@ def _origin(text):
 def _settings_args(p):
     """The flags that change settings: shared by run and config (which shows their effect)."""
     g = p.add_argument_group("output")
-    g.add_argument("--out", metavar="DIR", help="folder for the results (default: the current folder)")
-    g.add_argument("--no-3d", action="store_true", help="contours in plan only, no 3D ribbons")
-    _add_params(p.add_argument_group("relief"), RELIEF_PARAMS)
-    _add_params(p.add_argument_group("contour smoothing (Reduce -> drop short -> curve -> Simplify)"),
-                SMOOTHING_PARAMS)
+    g.add_argument("--out", metavar="DIR", help="folder for the results (default: output, in the current folder)")
+    g.add_argument("--no-3d", action="store_true", help="contour lines in plan only (default: also in 3D)")
+    _add_params(p.add_argument_group("terrain"), RELIEF_PARAMS)
+    _add_params(p.add_argument_group("contour lines"), SMOOTHING_PARAMS)
     g = p.add_argument_group("placement")
     _add_params(g, PLACEMENT_PARAMS)
     g.add_argument("--origin", type=_origin, metavar="auto|keep|X,Y",
-                   help="new PLN only: auto (default) = origin moved near a far-away cloud | keep = the cloud's own "
-                        "coordinates | X,Y = this point becomes the origin")
+                   help="new PLN only: where the project origin goes. auto = next to the cloud when it is far "
+                        "from 0,0 | keep = the cloud's own coordinates | X,Y = this cloud point (default: auto)")
     g = p.add_argument_group("settings files")
     g.add_argument("--config", action="append", default=[], metavar="FILE",
                    help="extra JSON settings merged over config/default.json and config/project.json (repeatable)")
@@ -105,8 +112,9 @@ def _parser():
     g.add_argument("--only", choices=STAGE_NAMES, metavar="STAGE", help="run one stage (see: relief.bat stages)")
     g.add_argument("--from", dest="start", choices=STAGE_NAMES, metavar="STAGE", help="start at this stage")
     g.add_argument("--until", choices=STAGE_NAMES, metavar="STAGE", help="stop after this stage")
-    g.add_argument("--force", action="store_true", help="redo the selected stages even if cached")
-    g.add_argument("--work", metavar="DIR", help="cache folder (default: %%LOCALAPPDATA%%\\ing_studio_toolkit\\...)")
+    g.add_argument("--force", action="store_true", help="redo the stages even if their results are cached")
+    g.add_argument("--cache", metavar="DIR",
+                   help="folder for intermediate files (default: %%LOCALAPPDATA%%\\ing_studio_toolkit\\...)")
     g.add_argument("--notify", action="store_true", help="show a message when finished (used by the palette button)")
 
     sub.add_parser("stages", help="list the stages")
@@ -127,7 +135,7 @@ def _overrides(args):
         if value is not None:
             out.append((key.split("."), value))
     for attr, key, value in (("no_3d", "archicad.contours_3d", False), ("origin", "placement.new_pln_origin", None),
-                             ("out", "paths.output_dir", None), ("work", "paths.work_dir", None)):
+                             ("out", "paths.output_dir", None), ("cache", "paths.work_dir", None)):
         given = getattr(args, attr, None)
         if given:
             out.append((key.split("."), given if value is None else value))

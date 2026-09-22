@@ -1,12 +1,12 @@
 """Stage ground: denoise + bare-earth classification of the cloud (PDAL CSF or SMRF)."""
 from ..io.pdal import class_counts, pdal_pipeline
-from ..util import all_exist, load_json, log, save_json
+from ..util import all_exist, load_json, log, save_json, skip
 
 
 def run(job, force=False):
     classified, ground = job.c("classified.laz"), job.c("ground.laz")
     if not force and all_exist([classified, ground]):
-        log("ground: skip, classified.laz / ground.laz exist")
+        skip("ground: already classified")
         if not (load_json(job.c("ground_summary.json")) or {}).get("classes"):
             write_ground_summary(job)
         return

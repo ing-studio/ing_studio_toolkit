@@ -11,7 +11,7 @@ from shapely import contains_xy, segmentize
 from shapely.geometry import Polygon, shape
 from shapely.ops import unary_union
 
-from ..util import log
+from ..util import warn
 from .raster import nearest_fill, quadtree_points, sample_raster
 
 gdal.UseExceptions()
@@ -32,7 +32,7 @@ def footprint_polygon(footprint_tif, simplify_m):
     geom = unary_union(polys).buffer(0).simplify(simplify_m, preserve_topology=True).buffer(0)
     parts = sorted(list(geom.geoms) if geom.geom_type == "MultiPolygon" else [geom], key=lambda p: -p.area)
     if len(parts) > 1:
-        log(f"mesh: WARNING the footprint has {len(parts)} separate parts; only the largest "
+        warn(f"contours: the footprint has {len(parts)} separate parts; only the largest "
             f"({parts[0].area:,.0f} m2) is used, {sum(p.area for p in parts[1:]):,.0f} m2 left out")
     poly = parts[0]
     return Polygon(poly.exterior, [r for r in poly.interiors if Polygon(r).area > 100.0])
@@ -49,7 +49,7 @@ def adaptive_points(z, gt, valid, m):
         return lo, pts
     best = (hi, quadtree_points(z, gt, valid, hi, **kw))
     if len(best[1]) > target:
-        log(f"mesh: WARNING even {hi} m tolerance gives {len(best[1]):,} points > target {target:,}")
+        warn(f"contours: even {hi} m tolerance gives {len(best[1]):,} points > target {target:,}")
         return best
     for _ in range(7):  # geometric bisection: tolerance within ~5 %
         mid = math.sqrt(lo * hi)

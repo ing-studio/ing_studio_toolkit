@@ -9,7 +9,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from ..util import app_env, log, same_path, tool
+from ..util import app_env, detail, log, same_path, tool
 from .addon import is_tapir_registered, register_tapir
 from .client import ARCHICAD_VERSION, PORTS, Archicad, ArchicadError, DialogWatch, SafetyStop, archicad_running
 
@@ -109,7 +109,7 @@ def connect_project(job, pln):
 
     instances = scan_instances(host)
     for inst in instances:
-        log(f"archicad: found {_describe(inst)}")
+        detail(f"archicad: already running: {_describe(inst)}")
     inst = find_instance(host, pln, instances)
     if inst is None and Path(str(pln) + ".lck").exists():
         inst = find_instance(host, pln) if project_is_open(host, pln) else None  # never open the same file twice
@@ -173,7 +173,7 @@ def _check_tapir(ac):
     if missing:
         raise ArchicadError(f"Tapir commands not available ({', '.join(missing)}). Close this Archicad, run "
                             "'relief.bat addon install' and run again.")
-    log(f"archicad: Tapir {ac.tapir('GetAddOnVersion').get('version')} on port {ac.port}")
+    detail(f"archicad: Tapir {ac.tapir('GetAddOnVersion').get('version')} on port {ac.port}")
 
 
 

@@ -73,7 +73,7 @@ def load_config(extra_files=(), assignments=(), use_project=True):
     validate(cfg)
     cfg["_files"] = [str(DEFAULT_FILE)] + [str(p) for p in layers]
     # relative folders are relative to the folder the command is run from
-    cfg["_output"] = Path(os.path.abspath(cfg["paths"]["output_dir"] or "."))
+    cfg["_output"] = Path(os.path.abspath(cfg["paths"]["output_dir"] or "output"))
     cfg["_work"] = Path(os.path.abspath(cfg["paths"]["work_dir"] or DEFAULT_WORK_DIR))
     return cfg
 

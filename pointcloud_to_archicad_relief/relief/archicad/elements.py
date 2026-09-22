@@ -4,7 +4,7 @@ import json
 import numpy as np
 from shapely.geometry import LineString
 
-from ..util import log
+from ..util import detail, warn
 from .client import ArchicadError, eid
 
 RELIEF_TYPES = ("Mesh", "Spline", "PolyLine", "Text", "Morph")
@@ -15,7 +15,7 @@ def created(label, items):
     for it in items:
         (ok if isinstance(it, dict) and "elementId" in it else bad).append(it)
     if bad:
-        log(f"archicad: {label}: {len(bad)} failures, first: {json.dumps(bad[0])[:400]}")
+        warn(f"archicad: {label}: {len(bad)} failures, first: {json.dumps(bad[0])[:400]}")
     return [it["elementId"]["guid"] for it in ok]
 
 
@@ -24,7 +24,7 @@ def batched(ac, command, key, items, batch, label):
     for i in range(0, len(items), batch):
         res = ac.tapir(command, {key: items[i:i + batch]}, timeout=3600)
         guids += created(label, res.get("elements", []))
-        log(f"archicad: {label}: {min(i + batch, len(items)):,}/{len(items):,} sent, {len(guids):,} created")
+        detail(f"archicad: {label}: {min(i + batch, len(items)):,}/{len(items):,} sent, {len(guids):,} created")
     return guids
 
 
@@ -141,7 +141,7 @@ def probe_morph(ac, floor):
     bb = ac.api("API.Get3DBoundingBoxes", {"elements": [eid(ok[0])]})["boundingBoxes3D"][0]["boundingBox3D"]
     ac.tapir("DeleteElements", {"elements": [eid(ok[0])]})
     offset = want - (bb["zMin"] + bb["zMax"]) / 2.0
-    log(f"archicad: probe -> Morph z offset {offset:+.3f} m (ribbon asked for {want}, landed at "
+    detail(f"archicad: probe -> Morph z offset {offset:+.3f} m (ribbon asked for {want}, landed at "
         f"{(bb['zMin'] + bb['zMax']) / 2.0:.3f})")
     return offset
 
@@ -185,6 +185,6 @@ def probe_mesh(ac, floor, level):
             mode = "pair"
     if mode is None:
         raise ArchicadError(f"Mesh interior level points are not accepted by this Tapir/Archicad ({err})")
-    log(f"archicad: probe -> vertex z {'relative to mesh level' if relative else 'story-relative'}; "
+    detail(f"archicad: probe -> vertex z {'relative to mesh level' if relative else 'story-relative'}; "
         f"interior points as '{mode}' level entries")
     return relative, mode

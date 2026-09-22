@@ -8,7 +8,7 @@ from scipy.interpolate import griddata
 
 from ..geometry.raster import NODATA, nearest_fill, read_raster, write_raster
 from ..io.pdal import pdal_json, pdal_pipeline
-from ..util import all_exist, log, save_json
+from ..util import all_exist, detail, log, save_json, skip
 
 
 def _disk(r):
@@ -74,7 +74,7 @@ def run(job, force=False):
     res = float(d["resolution"])
     dem_clean, footprint_tif = job.c("dem_clean.tif"), job.c("footprint.tif")
     if not force and all_exist([dem_clean, footprint_tif]):
-        log("dem: skip, dem_clean.tif exists")
+        skip("dem: clean terrain model already built")
         return
 
     _rasterize(job, res)
@@ -202,4 +202,7 @@ def run(job, force=False):
         "z_max": round(float(np.nanmax(zs)), 3),
     }
     save_json(job.c("dem_summary.json"), stats)
-    log("dem: " + ", ".join(f"{k}={v}" for k, v in stats.items() if k != "grid"))
+    log(f"dem: clean terrain Z {stats['z_min']:.1f} .. {stats['z_max']:.1f}; removed "
+        f"{stats['raised_objects_removed_area_m2']:,.0f} m2 of trees/buildings and {stats['pits_removed_area_m2']:,.0f} m2 "
+        f"of pits; filled {stats['tin_filled_area_m2']:,.0f} m2 of gaps")
+    detail("dem: " + ", ".join(f"{k}={v}" for k, v in stats.items() if k != "grid"))
