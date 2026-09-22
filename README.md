@@ -1,32 +1,51 @@
 # ing_studio_toolkit
-This repo contains different tools & functions to work with data: survey data, Archicad models, and the automation
-between them. Each tool lives in its own folder, with its own README, configuration and tests.
+A collection of ing studio tools and functions for working with project data: survey data (point clouds), Archicad
+models, and the automation between them.
+
+The repo will keep growing, one tool at a time. Each tool is a self-contained folder at the top level. Its own
+README explains what it does, what it needs and how to use it.
 
 ## Tools
-| folder | what it does | entry |
-|---|---|---|
-| [`pointcloud_to_archicad_relief/`](pointcloud_to_archicad_relief/README.md) | Point cloud (E57, LAS/LAZ, PLY, XYZ …) + Archicad project → relief-only Archicad project: **one terrain mesh** and **contour layers cut from it** (1 m / 3 m / 5 m by default, configurable), as plan splines and 3D lines, plus a 3D DXF of the contours. Includes an Archicad 28 add-on (Tapir palette button). | `pointcloud_to_archicad_relief\relief.bat run --pln site.pln --cloud scan.e57` |
+| tool | purpose |
+|---|---|
+| [`pointcloud_to_archicad_relief/`](pointcloud_to_archicad_relief/README.md) | Builds an Archicad terrain from a point cloud: one mesh, plus contour layers cut from it. |
 
-## Relief pipeline in short
+Open a tool's folder and read its `README.md` to get started.
+
+## Repository layout
 ```
-pointcloud_to_archicad_relief\relief.bat run --pln D:\site.pln --cloud D:\scan.e57                 build the relief
-pointcloud_to_archicad_relief\relief.bat run --pln D:\site.pln --cut 1 2 5 --mesh-points 30000     other sizes / lighter mesh
-pointcloud_to_archicad_relief\relief.bat run --stage archicad --force                              rebuild only the Archicad file
-pointcloud_to_archicad_relief\relief.bat addon install                                             Archicad add-on (Archicad closed)
-pointcloud_to_archicad_relief\relief.bat stages | config | test
+ing_studio_toolkit\
+  README.md            this file: what the repo is and which tools it holds
+  .gitignore           repo-wide ignores
+  .gitattributes       line endings (Windows scripts keep CRLF)
+  <tool_name>\         one folder per tool
+    README.md          what the tool does, requirements, setup, usage, functions
+    ...                code, config, tests, entry script - whatever the tool needs
 ```
-- **Stages**: cloud → ground → dem → reference → contours → archicad → qa. Each stage is cached, so a re-run only
-  redoes what changed.
-- **Settings**: `config\default.json`, overridden by `config\project.json` (local, not in git; examples are in
-  `config\examples\`), then by `--set key=value` and the flags.
-- **Output**: `output\<source>_ReliefOnly.pln` and `output\<source>_ReliefOnly_contours.dxf`. The source project
-  is only read, never saved.
 
-See [pointcloud_to_archicad_relief/README.md](pointcloud_to_archicad_relief/README.md) for every option, the stages, and the functions of each
-module. [pointcloud_to_archicad_relief/addon/README.md](pointcloud_to_archicad_relief/addon/README.md) covers the Archicad button.
+## Getting the tools
+```
+git clone git@github.com:ing-studio/ing_studio_toolkit.git
+cd ing_studio_toolkit
+git pull                       later: update all tools
+```
+The repo can be cloned next to the project data it works on, or anywhere else. Each tool's README says where it
+expects its inputs.
 
-## Conventions for tools in this repo
-- One folder per tool, self-contained: code, `README.md`, configuration, tests, and an entry script.
-- No project data in git: inputs, outputs, caches and machine- or project-specific config are ignored. Each tool
-  ships example configs instead.
-- Windows first (Archicad, QGIS). A tool's README lists what it needs.
+## Adding a tool
+1. Create a top-level folder named after what the tool does, in lower case with underscores (for example
+   `pointcloud_to_archicad_relief`).
+2. Put everything the tool needs inside it:
+   - a `README.md` covering purpose, requirements, setup, usage and the main functions;
+   - an entry script;
+   - its configuration, with an example config;
+   - its tests.
+3. Keep project data out of git: inputs, outputs, caches, and machine- or project-specific config go into the
+   tool's `.gitignore`.
+4. Add one row to the **Tools** table above, linking to the tool's README.
+5. Commit with a message that names the tool.
+
+## Conventions
+- Tools are independent: one tool never imports code from another tool's folder.
+- A tool's README is the single place for its details. This file only lists the tools.
+- Windows first (Archicad, QGIS). Each tool's README lists the software it needs.

@@ -1,4 +1,6 @@
-# Relief pipeline
+# pointcloud_to_archicad_relief
+
+Part of [ing_studio_toolkit](../README.md). Called the *relief pipeline* in the code and the logs.
 
 Point cloud + Archicad project in → **relief-only Archicad project** out, in the coordinates of the source project:
 
