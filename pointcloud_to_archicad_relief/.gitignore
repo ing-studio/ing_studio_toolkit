@@ -1,8 +1,6 @@
-# local data and results of a project - never committed
-input/
-output/
-work/
+# machine- and project-specific settings, results of a run in this folder
 config/project.json
+*_ReliefOnly*
 # Python
 __pycache__/
 *.pyc

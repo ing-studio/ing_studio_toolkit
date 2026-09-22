@@ -10,6 +10,7 @@ from pathlib import Path
 from .util import PIPELINE_DIR
 
 CONFIG_DIR = PIPELINE_DIR / "config"
+DEFAULT_WORK_DIR = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "ing_studio_toolkit" / PIPELINE_DIR.name
 DEFAULT_FILE = CONFIG_DIR / "default.json"
 PROJECT_FILE = CONFIG_DIR / "project.json"
 
@@ -71,9 +72,9 @@ def load_config(extra_files=(), assignments=(), use_project=True):
         set_value(cfg, keys, value)
     validate(cfg)
     cfg["_files"] = [str(DEFAULT_FILE)] + [str(p) for p in layers]
-    for key in ("input_dir", "output_dir", "work_dir"):
-        p = Path(cfg["paths"][key])
-        cfg["_" + key[:-4]] = Path(os.path.normpath(p if p.is_absolute() else PIPELINE_DIR / p))
+    # relative folders are relative to the folder the command is run from
+    cfg["_output"] = Path(os.path.abspath(cfg["paths"]["output_dir"] or "."))
+    cfg["_work"] = Path(os.path.abspath(cfg["paths"]["work_dir"] or DEFAULT_WORK_DIR))
     return cfg
 
 
@@ -89,6 +90,10 @@ def validate(cfg):
         raise ConfigError("ground.method must be csf or smrf")
     if cfg["placement"]["mode"] not in ("auto", "object", "coordinates"):
         raise ConfigError("placement.mode must be auto, object or coordinates")
+    origin = cfg["placement"]["new_pln_origin"]
+    if origin not in ("auto", "keep") and not (isinstance(origin, list) and len(origin) == 2
+                                               and all(isinstance(v, (int, float)) for v in origin)):
+        raise ConfigError(f"placement.new_pln_origin must be auto, keep or [x, y], got {origin!r}")
     if "{size}" not in cfg["archicad"]["layer_contours"]:
         raise ConfigError("archicad.layer_contours must contain {size}")
     for key in ("layer_mesh", "layer_contours"):

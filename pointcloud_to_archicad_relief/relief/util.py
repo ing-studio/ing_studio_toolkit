@@ -92,11 +92,18 @@ def tool(cfg, key):
     raise RuntimeError(f"{key} not found (config tools.{key} = {configured!r}); install it or set tools.{key}")
 
 
+def app_env():
+    """Environment for other applications: without the Qt settings of QGIS, whose Python runs this tool - with
+    them, Qt programs such as CloudCompare cannot start (they wait on a 'no Qt platform plugin' message)."""
+    return {k: v for k, v in os.environ.items() if not k.upper().startswith("QT_")}
+
+
 def run(cmd, check=True):
     """Run an external command; returns (code, stdout, stderr)."""
     log("RUN " + " ".join(f'"{c}"' if " " in str(c) else str(c) for c in cmd))
     t0 = time.time()
-    p = subprocess.run([str(c) for c in cmd], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    p = subprocess.run([str(c) for c in cmd], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       env=app_env())
     log(f"    exit={p.returncode} in {time.time() - t0:.1f}s")
     if check and p.returncode != 0:
         sys.stderr.write(p.stdout[-4000:] + "\n" + p.stderr[-4000:] + "\n")

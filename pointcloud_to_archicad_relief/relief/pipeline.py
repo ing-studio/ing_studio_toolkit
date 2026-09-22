@@ -3,9 +3,10 @@
   per point cloud   cloud      point cloud file(s) -> LAZ
                     ground     denoise + bare-earth classification
                     dem        clean bare-earth DEM
-  per PLN           reference  placement + elevations, read once from the source PLN (never saved)
-                    contours   one terrain mesh, cut at the contour sizes, smoothed; DXF into output/
-                    archicad   the mesh + contour layers into output/<source>_ReliefOnly.pln; saved
+  per PLN           reference  placement + elevations, read once from the source PLN (never saved);
+                               without a PLN: the point cloud's own coordinates
+                    contours   one terrain mesh, cut at the contour sizes, smoothed; <name>_ReliefOnly_contours.dxf
+                    archicad   the mesh + contour layers into <name>_ReliefOnly.pln; saved
 
 A stage whose results exist for the same inputs and settings is skipped; --force re-runs the selected stages.
 """
@@ -34,9 +35,9 @@ STAGES = (
     Stage("cloud", "cloud", "cloud", "point cloud file(s) -> LAZ"),
     Stage("ground", "cloud", "ground", "denoise + bare-earth classification (PDAL)"),
     Stage("dem", "cloud", "dem", "clean bare-earth DEM"),
-    Stage("reference", "pln", "reference", "placement + elevations from the source PLN (read only)"),
+    Stage("reference", "pln", "reference", "placement + elevations from the source PLN (read only), if one is given"),
     Stage("contours", "pln", "contours", "one terrain mesh, cut at the contour sizes, smoothed"),
-    Stage("archicad", "pln", "archicad", "write output/<source>_ReliefOnly.pln"),
+    Stage("archicad", "pln", "archicad", "write <name>_ReliefOnly.pln"),
 )
 STAGE_NAMES = [s.name for s in STAGES]
 
@@ -71,36 +72,35 @@ def _cloud_changed(job, selected, force):
 
 
 def run(cfg, clouds, plns, selected, force=False):
-    """Run the selected stages; returns (exit code, log file). Nothing outside work/ and output/ is written."""
-    for d in (cfg["_input"], cfg["_output"], cfg["_work"]):
-        d.mkdir(parents=True, exist_ok=True)
+    """Run the selected stages for the point cloud(s) and each PLN (none: a new PLN is made); returns
+    (exit code, log file). Only the work folder and the results in the output folder are written."""
     job = Job(cfg, clouds)
     job.cloud_dir.mkdir(parents=True, exist_ok=True)
     log_path = job.c("pipeline.log")
     set_log_file(log_path)
     stages = [s for s in STAGES if s.name in selected]
     pln_stages = [s for s in stages if s.scope == "pln"]
-    if pln_stages and not plns:
-        log(f"no .pln given and none in {cfg['_input']} - pass --pln or put the source PLN there")
-        return 1, log_path
+    targets = list(plns) or [None]
     try:
         log(f"===== run: {', '.join(selected)}{' (forced)' if force else ''} =====")
         log(f"point cloud(s): {clouds}")
-        log(f"PLN(s): {plns}")
+        log(f"PLN(s): {plns or 'none - a new PLN is made from the point cloud'}")
         log(f"config: {cfg['_files']}")
         force = _cloud_changed(job, selected, force)
         steps = [(s, job) for s in stages if s.scope == "cloud"]
-        for pln in plns if pln_stages else []:
+        for pln in targets if pln_stages else []:
             pj = job.with_pln(pln)
             pj.pln_dir.mkdir(parents=True, exist_ok=True)
             steps += [(s, pj) for s in pln_stages]
         for stage, j in steps:
             t0 = time.time()
-            log(f"===== stage {stage.name}{f' [{j.output_pln}]' if j.pln else ''} =====")
+            log(f"===== stage {stage.name}{f' [{j.output_pln}]' if stage.scope == 'pln' else ''} =====")
             stage.run(j, force)
             log(f"===== stage {stage.name} done in {time.time() - t0:.1f}s =====")
     except (Exception, KeyboardInterrupt):
         log("FAILED:\n" + traceback.format_exc())
         return 1, log_path
     log("===== finished =====")
+    for pln in targets if "archicad" in selected else []:
+        log(f"result: {job.with_pln(pln).output_pln}")
     return 0, log_path

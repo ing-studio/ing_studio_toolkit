@@ -7,7 +7,7 @@
 4. One layer per cut size (contours.cut_sizes_m): every level that is a multiple of that size.
 
 Results: <pln work>/relief.gpkg (for the Archicad and QA stages), contours_summary.json, and
-output/<pln>_ReliefOnly_contours.dxf (3D contours in PLN coordinates).
+<name>_ReliefOnly_contours.dxf in the output folder (3D contours in PLN coordinates).
 """
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
@@ -36,7 +36,7 @@ def run(job, force=False):
     out_gpkg, summary_path = job.p(RELIEF_FILE), job.p(CONTOURS_SUMMARY)
     ref, t, _, _ = load_placement(job)
     to_sea, to_pz = ref["source_to_sea_level"], ref["dz_source_to_project_zero"]
-    wanted = settings(cfg, "mesh", "contours")
+    wanted = dict(settings(cfg, "mesh", "contours"), transform=t)
     previous = load_json(summary_path) or {}
     if not force and out_gpkg.exists() and abs(previous.get("source_to_sea_level", 1e9) - to_sea) < 1e-3 \
             and previous.get("settings") == wanted:

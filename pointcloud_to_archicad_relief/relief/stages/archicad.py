@@ -1,4 +1,4 @@
-"""Stage archicad: write the relief into output/<source name>_ReliefOnly.pln.
+"""Stage archicad: write the relief into <name>_ReliefOnly.pln in the output folder (name = source PLN, else cloud).
 
 The relief-only PLN starts as a copy of Archicad's own template, so it holds no data of other add-ons and can be
 written on any machine. Coordinates, stories and heights are those of the source PLN: bring the relief into the real
@@ -51,13 +51,13 @@ def run(job, force=False):
     a = job.cfg["archicad"]
     result_path = job.p(ARCHICAD_RESULT)
     relief_sig = file_signature(job.p(RELIEF_FILE))
-    wanted = settings(job.cfg, "archicad")
+    ref, t, floor, source_story_level = load_placement(job)
+    wanted = dict(settings(job.cfg, "archicad"), transform=t)
     prev = load_json(result_path) or {}
     if not force and prev.get("saved") and prev.get("relief") == relief_sig and prev.get("settings") == wanted \
             and Path(job.output_pln).exists():
         log(f"archicad: skip, {job.output_pln} already holds this relief (use --force to redo)")
         return
-    ref, t, floor, source_story_level = load_placement(job)
     summary = load_json(job.p(CONTOURS_SUMMARY)) or {}
     if abs(ref["source_to_sea_level"] - summary.get("source_to_sea_level", 1e9)) > 0.01:
         raise ArchicadError("The contours were built for another elevation reference - run the contours stage again")

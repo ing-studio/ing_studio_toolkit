@@ -6,6 +6,8 @@ transform.json, so later stages never need the source project again.
 'object' placement: the PLN contains the point cloud object built from the same cloud -> the relief is fitted to
 it (origin, rotation, Z; checked against its 3D box, min and max Z must agree).
 'coordinates' placement: the cloud's own coordinates + placement.offset / rotation_deg.
+No source PLN ('new_pln'): the cloud's own coordinates in a new PLN, Z = metres above sea level, the project origin
+moved near the cloud when it is far from 0,0 (placement.new_pln_origin). Archicad is not needed for this.
 """
 import math
 
@@ -134,10 +136,44 @@ def load_placement(job):
     return ref, tr["transform"], int(tr["floorIndex"]), float(tr["story_level"])
 
 
+def _new_pln_origin(job):
+    """XY of the point cloud that becomes the project origin of a new PLN."""
+    origin = job.cfg["placement"]["new_pln_origin"]
+    if isinstance(origin, list):
+        return float(origin[0]), float(origin[1])
+    mins, maxs = source_bounds(job)
+    centre = (mins[:2] + maxs[:2]) / 2.0
+    if origin == "keep" or max(abs(centre)) <= 1000.0:
+        return 0.0, 0.0
+    return float(round(centre[0], -2)), float(round(centre[1], -2))
+
+
+def new_pln_placement(job, inputs):
+    """No source PLN: the cloud's own coordinates (moved to a nearby origin), Z = m a.s.l. = project zero."""
+    pl = job.cfg["placement"]
+    x0, y0 = _new_pln_origin(job)
+    off = pl.get("offset") or [0.0, 0.0, 0.0]
+    t = dict(ox=float(off[0]), oy=float(off[1]), oz=float(off[2]), angle=math.radians(float(pl.get("rotation_deg", 0.0))),
+             sx=x0, sy=y0, sz=0.0)
+    ref = {"placement": "new_pln", "source_z": "sea_level", "dz_source_to_project_zero": float(off[2]),
+           "project_zero_altitude": 0.0, "source_to_sea_level": float(off[2]), "new_pln_origin": [x0, y0],
+           "inputs": inputs}
+    save_json(job.p("transform.json"), {"placement": "new_pln", "floorIndex": 0, "story_level": 0.0, "transform": t})
+    save_json(job.p("elevation_reference.json"), ref)
+    if x0 or y0:
+        log(f"reference: new PLN - point cloud point ({x0:.0f}, {y0:.0f}) is the project origin "
+            "(placement.new_pln_origin)")
+    else:
+        log("reference: new PLN - the point cloud's own coordinates")
+
+
 def run(job, force=False):
+    inputs = load_json(job.c("cloud_summary.json"))["inputs"]
+    if job.pln is None:
+        new_pln_placement(job, inputs)
+        return
     path = job.p("elevation_reference.json")
     ref, transform = load_json(path), load_json(job.p("transform.json"))
-    inputs = load_json(job.c("cloud_summary.json"))["inputs"]
     if ref and transform and "transform" in transform and not force \
             and ref.get("source_pln") == file_signature(job.pln) and ref.get("inputs") == inputs:
         log(f"reference: skip, placement of {job.pln} is already known")

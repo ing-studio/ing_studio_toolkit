@@ -9,7 +9,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from ..util import log, same_path, tool
+from ..util import app_env, log, same_path, tool
 from .addon import is_tapir_registered, register_tapir
 from .client import ARCHICAD_VERSION, PORTS, Archicad, ArchicadError, DialogWatch, SafetyStop, archicad_running
 
@@ -126,7 +126,7 @@ def connect_project(job, pln):
     exe = tool(job.cfg, "archicad_exe")
     log(f"archicad: starting {exe} on {pln} (answer library dialogs if asked; any other dialog stops the pipeline) ...")
     # started in the project's folder: Archicad keeps its start folder open, which must not be the code folder
-    proc = subprocess.Popen([exe, str(pln)], close_fds=True, cwd=str(Path(pln).parent))
+    proc = subprocess.Popen([exe, str(pln)], close_fds=True, cwd=str(Path(pln).parent), env=app_env())
     watch = DialogWatch(proc.pid, job.pln_dir)
     ac = _wait_for_project(host, pln, proc, watch)
     time.sleep(10)  # add-on version warnings appear shortly after the project is loaded

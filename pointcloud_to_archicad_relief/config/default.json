@@ -1,11 +1,12 @@
 {
-  "_about": "Defaults of the relief pipeline. Project-specific values go into config/project.json; any value can also be set on the command line (relief.bat run --set section.key=value). Keys starting with '_' are notes.",
+  "_about": "Defaults of the relief tool. Project-specific values go into config/project.json; any value can also be set on the command line (--set section.key=value). Keys starting with '_' are notes.",
 
   "paths": {
-    "_note": "relative to the pipeline folder (or absolute)",
-    "input_dir": "input",
-    "output_dir": "output",
-    "work_dir": "work",
+    "_output_dir": "where the results go; null = the folder the command is run from",
+    "output_dir": null,
+    "_work_dir": "cache of intermediate results (safe to delete); null = %LOCALAPPDATA%/ing_studio_toolkit/pointcloud_to_archicad_relief",
+    "work_dir": null,
+    "_source_cloud": "point cloud used when only a .pln is given (file or list of files)",
     "source_cloud": null
   },
 
@@ -64,7 +65,9 @@
     "offset": [0.0, 0.0, 0.0],
     "rotation_deg": 0.0,
     "floor_index": 0,
-    "transform_tolerance_m": 0.5
+    "transform_tolerance_m": 0.5,
+    "_new_pln_origin": "PLN made from the point cloud alone: auto = the project origin is moved near the cloud (rounded to 100 m) when the cloud is more than 1 km from 0,0, as Archicad is inaccurate far from its origin | keep = the cloud's own coordinates | [x, y] = this cloud point becomes the origin",
+    "new_pln_origin": "auto"
   },
 
   "mesh": {
@@ -90,7 +93,7 @@
   },
 
   "archicad": {
-    "_note": "output/<source>_ReliefOnly.pln starts as a copy of the Archicad template. Elements on layers named '<layer_prefix>*' are replaced on every write. Any unexpected Archicad dialog stops the pipeline without saving.",
+    "_note": "<name>_ReliefOnly.pln starts as a copy of the Archicad template. Elements on layers named '<layer_prefix>*' are replaced on every write. Any unexpected Archicad dialog stops the pipeline without saving.",
     "host": "http://127.0.0.1",
     "layer_prefix": "Relief - ",
     "layer_mesh": "Relief - Terrain Mesh",

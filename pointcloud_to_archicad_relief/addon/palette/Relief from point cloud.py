@@ -5,8 +5,8 @@
 """Tapir palette button: build the relief of the open project with the relief pipeline.
 
 One terrain Mesh from the point cloud(s) and the contour layers cut from it are written into
-output/<project>_ReliefOnly.pln - a separate file; the open project is only read, never changed.
-All the logic lives in the pipeline; this button only starts it (relief.bat run --pln <this project>).
+<project>_ReliefOnly.pln next to the project - a separate file; the open project is only read, never changed.
+All the logic lives in the tool; this button only starts it (relief.bat <this project> [point clouds]).
 
 Installed into Documents/Tapir/custom-scripts by  relief.bat addon install  (which fills in PIPELINE_DIR).
 """
@@ -73,26 +73,28 @@ def main():
         f"Project:\n{pln}\n\nThe saved file is used (save now if you changed something).\n\n"
         "Choose point cloud file(s)?\n"
         "  Yes  = pick E57 / LAS / LAZ / PLY / XYZ ... files\n"
-        "  No   = use the point clouds in the pipeline's input folder (or the configured survey cloud)",
+        "  No   = use the survey cloud set in the tool's config\\project.json",
         parent=root)
     if choice is None:
         return
-    cmd = [str(relief_bat), "run", "--pln", pln, "--notify"]
+    folder = str(Path(pln).parent)
+    cmd = [str(relief_bat), pln]
     if choice:
         clouds = filedialog.askopenfilenames(title="Point cloud file(s)", filetypes=CLOUD_TYPES, parent=root)
         if not clouds:
             return
-        cmd += ["--cloud", *clouds]
+        cmd += list(clouds)
+    cmd += ["--out", folder, "--notify"]
 
     # own console window (a small launcher .cmd avoids cmd's quoting rules), so the progress is visible and
     # Archicad stays free; the pipeline shows a message when it is done
     launcher = Path(tempfile.gettempdir()) / "relief_pipeline_launch.cmd"
     line = " ".join(f'"{c}"' for c in cmd)
-    launcher.write_text(f'@echo off\r\nchcp 65001 >nul\r\ntitle Relief pipeline\r\ncd /d "{PIPELINE_DIR}"\r\n'
+    launcher.write_text(f'@echo off\r\nchcp 65001 >nul\r\ntitle Relief pipeline\r\ncd /d "{folder}"\r\n'
                         f"call {line}\r\necho.\r\npause\r\n", encoding="utf-8")
     os.startfile(str(launcher))
     messagebox.showinfo(title, "The relief pipeline is running in its own window.\n\n"
-                               "Result: output\\<project>_ReliefOnly.pln\n"
+                               f"Result: {Path(pln).stem}_ReliefOnly.pln next to the project\n"
                                "A message appears when it is finished.", parent=root)
 
 
