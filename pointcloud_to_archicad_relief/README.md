@@ -22,7 +22,7 @@ Or, in Archicad, click **Tapir palette › Relief from point cloud** ([how](addo
 | a project and its point cloud | `relief.bat project.pln survey.e57` | a PLN that lines up with your project |
 | only a project | `relief.bat project.pln` | the same, using the cloud set in `config\project.json` |
 
-Point cloud types: E57, LAS, LAZ, PLY, PCD, PTS, PTX, XYZ, TXT and CSV. Your project is only read, never changed.
+Point cloud types: E57, LAS, LAZ, PLY, PCD, PTS, PTX, and text formats (XYZ, TXT, CSV, ASC…). Your project is only read, never changed.
 
 ## What you get
 In `output\`:
