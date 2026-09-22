@@ -1,15 +1,18 @@
 """Installing the Archicad add-on of this pipeline (see addon/README.md).
 
-1. Tapir (addon/tapir/*.apx): the open-source Archicad add-on whose JSON commands the pipeline uses. Archicad keeps
-   the user add-on list in HKCU\\Software\\GRAPHISOFT\\Archicad\\Archicad 28 ...\\Add-On Manager\\Include as
-   "#1.", "#2.", ... = "lan.flat:///C:/path/addon.apx" plus "Include Number". The .apx is copied to
-   %LOCALAPPDATA%\\Tapir\\Archicad 28 and appended to that list (other add-ons are kept; a backup of the list is
-   written next to it). A running Archicad loads add-ons only at start, and may rewrite the list when it quits.
+1. Tapir: the open-source Archicad add-on whose JSON commands the pipeline uses. The pinned release is downloaded
+   from GitHub into %LOCALAPPDATA%\\Tapir\\Archicad 28 and checked against its SHA-256. Archicad keeps the user
+   add-on list in HKCU\\Software\\GRAPHISOFT\\Archicad\\Archicad 28 ...\\Add-On Manager\\Include as
+   "#1.", "#2.", ... = "lan.flat:///C:/path/addon.apx" plus "Include Number"; the .apx is appended to that list
+   (other add-ons are kept; a backup of the list is written next to it). A running Archicad loads add-ons only at
+   start, and may rewrite the list when it quits.
 2. The palette button (addon/palette/*.py): Tapir lists every script in Documents\\Tapir\\custom-scripts in its
    palette and runs it with uv. The installed copy is told where this pipeline is.
 """
+import hashlib
 import os
 import shutil
+import urllib.request
 import winreg
 from pathlib import Path
 
@@ -17,8 +20,11 @@ from ..util import PIPELINE_DIR, log, save_json
 from .client import ARCHICAD_VERSION, ArchicadError, archicad_running
 
 ADDON_DIR = PIPELINE_DIR / "addon"
-APX_SOURCE = ADDON_DIR / "tapir" / "TapirAddOn_AC28_Win.apx"
-APX_TARGET = Path(os.environ.get("LOCALAPPDATA", "")) / "Tapir" / f"Archicad {ARCHICAD_VERSION}" / APX_SOURCE.name
+TAPIR_VERSION = "1.5.9"
+TAPIR_FILE = f"TapirAddOn_AC{ARCHICAD_VERSION}_Win.apx"
+TAPIR_URL = f"https://github.com/ENZYME-APD/tapir-archicad-automation/releases/download/{TAPIR_VERSION}/{TAPIR_FILE}"
+TAPIR_SHA256 = "4a38838bb311a0d5b31e7525c04bfa98bdacf6239e55d233694dc0e630822ee8"
+APX_TARGET = Path(os.environ.get("LOCALAPPDATA", "")) / "Tapir" / f"Archicad {ARCHICAD_VERSION}" / TAPIR_FILE
 PALETTE_SOURCE = ADDON_DIR / "palette"
 PALETTE_TARGET = Path(os.environ.get("USERPROFILE", "")) / "Documents" / "Tapir" / "custom-scripts"
 REGISTRY_ROOT = r"Software\GRAPHISOFT\Archicad"
@@ -84,6 +90,29 @@ def is_tapir_registered():
 
 
 # --------------------------------------------------------------------------- install / remove
+def _sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def download_tapir():
+    """The pinned Tapir release into APX_TARGET (kept when it is already there and intact)."""
+    if APX_TARGET.exists() and _sha256(APX_TARGET) == TAPIR_SHA256:
+        return
+    APX_TARGET.parent.mkdir(parents=True, exist_ok=True)
+    tmp = APX_TARGET.with_suffix(".download")
+    log(f"addon: downloading Tapir {TAPIR_VERSION} from {TAPIR_URL} ...")
+    with urllib.request.urlopen(TAPIR_URL, timeout=120) as r, open(tmp, "wb") as f:
+        shutil.copyfileobj(r, f)
+    if _sha256(tmp) != TAPIR_SHA256:
+        tmp.unlink()
+        raise ArchicadError(f"the downloaded Tapir does not match its checksum - not installed ({TAPIR_URL})")
+    tmp.replace(APX_TARGET)  # written by Python: carries no "downloaded from the internet" mark
+
+
 def register_tapir(remove=False):
     """Tapir in the Add-On Manager list of every Archicad 28 language version on this machine."""
     keys = _include_keys()
@@ -91,8 +120,7 @@ def register_tapir(remove=False):
         raise ArchicadError(f"No Archicad {ARCHICAD_VERSION} settings in the registry - start and close Archicad once")
     entry = "lan.flat:///" + APX_TARGET.as_posix()
     if not remove:
-        APX_TARGET.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(APX_SOURCE, APX_TARGET)  # a plain data copy carries no "downloaded from the internet" mark
+        download_tapir()
     backup = APX_TARGET.parent.parent / f"addon_manager_backup_{os.environ.get('COMPUTERNAME', 'pc')}.json"
     for key in keys:
         before = _read_entries(key)
@@ -103,8 +131,8 @@ def register_tapir(remove=False):
         if not backup.exists():
             save_json(backup, {"key": key, "entries": before})
         _write_entries(key, wanted)
-    log(f"addon: Tapir {'removed from' if remove else 'registered in'} the Archicad {ARCHICAD_VERSION} Add-On Manager "
-        f"({APX_TARGET})")
+    log(f"addon: Tapir {TAPIR_VERSION} {'removed from' if remove else 'registered in'} the Archicad "
+        f"{ARCHICAD_VERSION} Add-On Manager ({APX_TARGET})")
     if archicad_running():
         log("addon: NOTE Archicad is running; it loads add-ons only at start - restart it to use Tapir")
 
@@ -132,6 +160,8 @@ def install(remove=False, palette_only=False):
 
 
 def status():
-    return {"tapir_apx": str(APX_TARGET), "tapir_registered": is_tapir_registered(),
+    return {"tapir_version": TAPIR_VERSION, "tapir_apx": str(APX_TARGET),
+            "tapir_apx_intact": APX_TARGET.exists() and _sha256(APX_TARGET) == TAPIR_SHA256,
+            "tapir_registered": is_tapir_registered(),
             "palette_buttons": [str(PALETTE_TARGET / p.name) for p in sorted(PALETTE_SOURCE.glob("*.py"))
                                 if (PALETTE_TARGET / p.name).exists()]}

@@ -4,7 +4,6 @@
   stages   list the stages
   config   print the effective configuration (after project.json, --config and overrides)
   addon    install / remove / show the Archicad add-on (Tapir + palette button)
-  test     run the unit tests
 """
 import argparse
 import json
@@ -64,7 +63,6 @@ def _parser():
     cfg = sub.add_parser("config", help="print the effective configuration")
     config_args(cfg)
 
-    sub.add_parser("test", help="run the unit tests (tests/)")
     addon = sub.add_parser("addon", help="Archicad add-on: Tapir + palette button")
     addon.add_argument("action", choices=["install", "remove", "status"])
     addon.add_argument("--palette-only", action="store_true",
@@ -108,11 +106,6 @@ def main(argv=None):
             for s in STAGES:
                 print(f"{s.name:10s} per {s.scope:5s}  {s.help}")
             return 0
-        if args.command == "test":
-            import unittest
-            from .util import PIPELINE_DIR
-            suite = unittest.defaultTestLoader.discover(str(PIPELINE_DIR / "tests"), top_level_dir=str(PIPELINE_DIR))
-            return 0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1
         if args.command == "addon":
             from .archicad import addon
             if args.action == "status":

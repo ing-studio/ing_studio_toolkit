@@ -20,7 +20,7 @@ ing_studio_toolkit\
   .gitattributes       line endings (Windows scripts keep CRLF)
   <tool_name>\         one folder per tool
     README.md          what the tool does, requirements, setup, usage, functions
-    ...                code, config, tests, entry script - whatever the tool needs
+    ...                code, config, entry script - only what the tool needs
 ```
 
 ## Getting the tools
@@ -38,8 +38,10 @@ expects its inputs.
 2. Put everything the tool needs inside it:
    - a `README.md` covering purpose, requirements, setup, usage and the main functions;
    - an entry script;
-   - its configuration, with an example config;
-   - its tests.
+   - its configuration, with an example config.
+
+   Keep the tool light: no bundled binaries that can be downloaded, no generated files, no extras it does not
+   need to run.
 3. Keep project data out of git: inputs, outputs, caches, and machine- or project-specific config go into the
    tool's `.gitignore`.
 4. Add one row to the **Tools** table above, linking to the tool's README.

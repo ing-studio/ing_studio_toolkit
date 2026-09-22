@@ -47,8 +47,8 @@ def _tin_fill(z, fill_mask, max_hole_px):
 
 
 def _rasterize(job, res):
-    """Raw DSM, point coverage, non-ground density and ground IDW DEM on one aligned grid (separate PDAL runs:
-    branched multi-writer pipelines only execute one leaf)."""
+    """Point coverage, non-ground density and ground IDW DEM on one aligned grid (separate PDAL runs: branched
+    multi-writer pipelines only execute one leaf)."""
     classified = job.c("classified.laz")
     b = pdal_json(job, ["info", "--summary", str(classified)])["summary"]["bounds"]
     minx, miny = math.floor(b["minx"] / res) * res, math.floor(b["miny"] / res) * res
@@ -60,8 +60,7 @@ def _rasterize(job, res):
     def writer(name, output_type, **extra):
         return dict({"type": "writers.gdal", "filename": str(job.c(name)), "output_type": output_type}, **grid, **extra)
 
-    log("dem: rasterizing raw DSM, point coverage, non-ground density and ground DEM (idw) ...")
-    pdal_pipeline(job, [reader, writer("dsm_raw.tif", "max")], "dem_dsm")
+    log("dem: rasterizing point coverage, non-ground density and ground DEM (idw) ...")
     pdal_pipeline(job, [reader, {"type": "filters.range", "limits": "Classification![7:7]"},
                         writer("count.tif", "count")], "dem_count")
     pdal_pipeline(job, [reader, {"type": "filters.range", "limits": "Classification[1:1]"},
@@ -189,8 +188,6 @@ def run(job, force=False):
 
     write_raster(dem_clean, zs, gt, proj)
     write_raster(footprint_tif, valid.astype(np.uint8), gt, proj, dtype=gdal.GDT_Byte, nodata=None)
-    write_raster(job.c("removed_mask.tif"), obj.astype(np.uint8) + 2 * pit.astype(np.uint8), gt, proj,
-                 dtype=gdal.GDT_Byte, nodata=None)
 
     stats = {
         "grid": {"cols": z.shape[1], "rows": z.shape[0], "resolution": res, "geotransform": gt},

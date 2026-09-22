@@ -39,19 +39,17 @@ pointcloud_to_archicad_relief\
   config\examples\         example project configs (tbilisyan_bridge.json)
   relief\                  Python package (see Code and Functions below)
   addon\                   Archicad add-on: Tapir + palette button, installer
-  tests\                   unit tests (relief.bat test)
   setup_env.ps1            Python environment for machines without QGIS
-  pyproject.toml
   input\    source .pln (+ point cloud files, optional)                     - not in git
   output\   <source>_ReliefOnly.pln, <source>_ReliefOnly_contours.dxf       - not in git
-  work\     cache per point cloud / per project, pipeline.log, qa\ report   - not in git, safe to delete
+  work\     cache per point cloud / per project, pipeline.log              - not in git, safe to delete
 ```
 Input, output and work folders can live anywhere: set `paths.input_dir`, `paths.output_dir` and `paths.work_dir`
 in `config\project.json`, or pass `--out` / `--work`. Relative paths are relative to this folder.
 
 ## Setup for a project
 1. Copy `config\examples\tbilisyan_bridge.json` to `config\project.json`.
-2. Set the survey point cloud (`paths.source_cloud`) and, optionally, the QA reference points and preview windows.
+2. Set the survey point cloud (`paths.source_cloud`), and the point cloud object's name if the PLN contains one.
 3. Put the source `.pln` into `input\`, or pass `--pln`.
 4. Run `relief.bat addon install` once per machine, with Archicad closed.
 
@@ -61,7 +59,6 @@ relief.bat run      [--pln FILE ...] [--cloud FILE ...] [stage options] [paramet
 relief.bat stages   list the stages
 relief.bat config   [parameters]          print the effective configuration
 relief.bat addon    install | remove | status [--palette-only]
-relief.bat test     run the unit tests
 ```
 **Inputs.** Without `--pln` / `--cloud`, the inputs are taken as follows:
 - every `.pln` in `input\`;
@@ -109,7 +106,6 @@ Examples: `--set archicad.contour_pens=[4,2,1]`, `--set ground.method=smrf`, `--
 | reference | pln | placement (the point cloud object in the PLN, or the cloud's own coordinates) and elevations, read once from the source PLN | `elevation_reference.json`, `transform.json` |
 | contours | pln | **one mesh** → **cut** at every contour level → **smoothing** of every line | `relief.gpkg`, `contours_summary.json`, output DXF |
 | archicad | pln | relief-only PLN from the Archicad template: the mesh, the contour Splines + 3D ribbons per layer; verified, saved | output PLN, `archicad_result.json` |
-| qa | pln | accuracy vs reference ground points, preview images | `qa\report.md`, `qa\*.png` |
 
 ### Mesh, cut, smoothing (contours stage)
 1. **Mesh.**
@@ -165,7 +161,7 @@ relief\
   archicad\         client (JSON API, Tapir, safety stop), session (instances), elements, addon (install)
 ```
 - **Stages.** Stages exchange data only through files in the work folder, so each one can be re-run on its own.
-- **Geometry.** The `geometry` modules are pure functions of numpy arrays and are covered by `tests\`.
+- **Geometry.** The `geometry` modules are pure functions of numpy arrays: no files, no Archicad.
 - **Adding a stage.** Write `relief\stages\<name>.py` with `run(job, force)` and add a `Stage(...)` entry in
   `pipeline.py`.
 

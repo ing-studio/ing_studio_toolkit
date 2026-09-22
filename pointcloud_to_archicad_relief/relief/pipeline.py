@@ -6,7 +6,6 @@
   per PLN           reference  placement + elevations, read once from the source PLN (never saved)
                     contours   one terrain mesh, cut at the contour sizes, smoothed; DXF into output/
                     archicad   the mesh + contour layers into output/<source>_ReliefOnly.pln; saved
-                    qa         report + preview images
 
 A stage whose results exist for the same inputs and settings is skipped; --force re-runs the selected stages.
 """
@@ -38,7 +37,6 @@ STAGES = (
     Stage("reference", "pln", "reference", "placement + elevations from the source PLN (read only)"),
     Stage("contours", "pln", "contours", "one terrain mesh, cut at the contour sizes, smoothed"),
     Stage("archicad", "pln", "archicad", "write output/<source>_ReliefOnly.pln"),
-    Stage("qa", "pln", "qa", "report + preview images"),
 )
 STAGE_NAMES = [s.name for s in STAGES]
 

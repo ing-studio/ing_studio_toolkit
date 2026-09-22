@@ -1,5 +1,5 @@
 # Creates a Python 3.12 environment for the pipeline in %LOCALAPPDATA%\pipeline_env (no admin rights needed).
-# Enough for the reference, contours, archicad and qa stages; the point cloud stages also need PDAL (QGIS).
+# Enough for the reference, contours and archicad stages; the point cloud stages also need PDAL (QGIS).
 $ErrorActionPreference = 'Stop'
 $env_dir = Join-Path $env:LOCALAPPDATA 'pipeline_env'
 New-Item -ItemType Directory -Force $env_dir | Out-Null
@@ -15,7 +15,7 @@ if (-not (Test-Path $uv)) {
 & $uv venv (Join-Path $env_dir '.venv') --python 3.12
 if ($LASTEXITCODE) { throw "uv venv failed" }
 $py = Join-Path $env_dir '.venv\Scripts\python.exe'
-& $uv pip install --python $py numpy scipy shapely matplotlib pandas `
+& $uv pip install --python $py numpy scipy shapely `
     'https://github.com/cgohlke/geospatial-wheels/releases/download/v2026.8.20/gdal-3.13.3-cp312-cp312-win_amd64.whl'
 if ($LASTEXITCODE) { throw "uv pip install failed" }
-& $py -c "from osgeo import gdal; import numpy, scipy, shapely, matplotlib, pandas; print('OK gdal', gdal.__version__)"
+& $py -c "from osgeo import gdal; import numpy, scipy, shapely; print('OK gdal', gdal.__version__)"

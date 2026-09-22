@@ -6,8 +6,7 @@
     "input_dir": "input",
     "output_dir": "output",
     "work_dir": "work",
-    "source_cloud": null,
-    "qa_ground_points_txt": null
+    "source_cloud": null
   },
 
   "tools": {
@@ -109,12 +108,5 @@
     "mesh_level_pen": 3,
     "batch_size": 500,
     "morph_batch_size": 50
-  },
-
-  "qa": {
-    "ground_points_sample_every": 100,
-    "ground_points_max_lines": 4000000,
-    "_zooms": "detail previews {name: [xmin, ymin, xmax, ymax]} in point cloud coordinates; empty = the four quadrants",
-    "zooms": {}
   }
 }

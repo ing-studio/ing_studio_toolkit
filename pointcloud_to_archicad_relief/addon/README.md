@@ -4,15 +4,14 @@ Runs the relief pipeline from inside Archicad 28 with one click: Tapir palette â
 
 ```
 addon\
-  install.bat                          installs everything below (install.bat remove = uninstall)
-  tapir\TapirAddOn_AC28_Win.apx        Tapir 1.5.9 for Archicad 28 (open source, github.com/ENZYME-APD/tapir-archicad-automation)
+  install.bat                          installs Tapir + the button (install.bat remove = uninstall)
   palette\Relief from point cloud.py   the palette button
 ```
 
 ## What is installed
 | part | where | why |
 |---|---|---|
-| Tapir add-on | copied to `%LOCALAPPDATA%\Tapir\Archicad 28\`, added to Archicad's Add-On Manager list (registry, current user; other add-ons are kept, the previous list is backed up next to it) | the JSON commands the pipeline uses to read the project and write the mesh and contours |
+| Tapir 1.5.9 add-on | downloaded from its [GitHub release](https://github.com/ENZYME-APD/tapir-archicad-automation/releases/tag/1.5.9) (checked by SHA-256) into `%LOCALAPPDATA%\Tapir\Archicad 28\`, added to Archicad's Add-On Manager list (registry, current user; other add-ons are kept, the previous list is backed up next to it) | the JSON commands the pipeline uses to read the project and write the mesh and contours |
 | palette button | `Documents\Tapir\custom-scripts\Relief from point cloud.py`, pointing at this pipeline | starts the pipeline for the open project |
 
 ## Install
