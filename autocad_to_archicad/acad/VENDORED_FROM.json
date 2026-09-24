@@ -1,0 +1,34 @@
+{
+  "_about": "Files copied unchanged from pointcloud_to_archicad_relief (toolkit rule: every tool is self-contained). the Vendored test in tests/test_tool.py fails when a copy and its source differ: change both together.",
+  "source_tool": "pointcloud_to_archicad_relief",
+  "files": {
+    "acad/util.py": {
+      "source": "relief/util.py",
+      "sha256": "e7d0b14ef043b33a040703685433a087661c6305b8c63e464e4727fefa097f6c"
+    },
+    "acad/archicad/client.py": {
+      "source": "relief/archicad/client.py",
+      "sha256": "0c88d7fd076d50cf942ea3b2fbf91974196747091b775d78d8986d4f159f9948"
+    },
+    "acad/archicad/session.py": {
+      "source": "relief/archicad/session.py",
+      "sha256": "c0bb28f81e4189ae0f35fd2122b5ebfed4aed263092a39775be45aa70eca8fd7"
+    },
+    "acad/archicad/addon.py": {
+      "source": "relief/archicad/addon.py",
+      "sha256": "0e6e00959b19c740b8ff8a2d2a6905f6a9b9b96e37eb78d3b510d684e469b5f0"
+    },
+    "acad/archicad/elements.py": {
+      "source": "relief/archicad/elements.py",
+      "sha256": "73f423078a44c8d04090139447d6b7ea3b7427847885270624fe1aa141fe4081"
+    },
+    "acad/geometry/raster.py": {
+      "source": "relief/geometry/raster.py",
+      "sha256": "33ae12d075ea3be3c5ab5750560439528ae5410b3fc9d56c6e197f747c0db4a0"
+    },
+    "acad/geometry/terrain_mesh.py": {
+      "source": "relief/geometry/terrain_mesh.py",
+      "sha256": "ffebadc368f8c649eebcbfb9d539032cef02f3fe07500c82381ae37b7189c847"
+    }
+  }
+}

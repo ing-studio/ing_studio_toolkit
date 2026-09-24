@@ -7,6 +7,7 @@ explains how to use it.
 | tool | what it does |
 |---|---|
 | [pointcloud_to_archicad_relief](pointcloud_to_archicad_relief/README.md) | Point cloud → Archicad terrain mesh + contour layers |
+| [autocad_to_archicad](autocad_to_archicad/README.md) | AutoCAD site plan + point cloud (+ optional project PDFs) → Archicad site model: terrain, existing and new streets (Armenian street norms), buildings, trees, underground levels, the drawing in 2D. The site's position and the layers' meaning are worked out automatically |
 
 ## Get it
 ```

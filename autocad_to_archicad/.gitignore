@@ -1,0 +1,10 @@
+samples/
+output/
+*.dwg
+*.dxf
+*.e57
+*.bak
+*.dwl*
+config/project.json
+*_FromDWG*
+__pycache__/
