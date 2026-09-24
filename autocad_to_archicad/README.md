@@ -8,8 +8,8 @@ area.
 The file has:
 
 - a **terrain mesh** made from the point cloud,
-- the **existing streets**, taken from OpenStreetMap, fitted to the kerbs in the drawing and regraded where new
-  streets join them,
+- the **existing streets**, taken from OpenStreetMap and joined into one network, fitted to the kerbs in the
+  drawing and regraded where new streets join them,
 - the **new streets** from the drawing, with profiles designed to the Armenian street norms (ՀՀՇՆ 30-01-2023), the
   terrain cut and filled to fit them, **retaining walls** and **bridges** where they are needed,
 - the **buildings**: existing ones with heights from OpenStreetMap, new ones with the storeys read from the shadows
@@ -17,8 +17,10 @@ The file has:
 - the **trees** of the drawing, as Archicad library objects,
 - the **drawing itself** on its own layers, over the terrain, as it looks in AutoCAD.
 
-Streets and sidewalks are grey solids lying on the terrain, which is cut and filled under and around them: their
-surfaces are continuous and smooth, and the ground meets their edges flush. No street, sidewalk or tree runs into a
+Streets and sidewalks are grey solids lying on the terrain, which is cut and filled under and around them. The paving
+is one connected network: new streets run into the existing ones, junctions have rounded kerbs, and the junction
+aprons, the roundabout and the driveways to the buildings are paved too. The surfaces are continuous and smooth, and
+the ground meets their edges flush. No street, sidewalk or tree runs into a
 building. The point cloud is only used to make the terrain and is not put into the Archicad file. PDFs are read as
 data: their text, tables and colours. No AI image recognition is used.
 
@@ -68,7 +70,7 @@ placed on the map (latitude, longitude and UTM survey point).
 |---|---|
 | **Site - Terrain** | one mesh: the terrain, cut and filled for the streets. Under the paving it follows the bodies' undersides, with lines along the paving's edges |
 | **Site - Roads existing** | the existing streets: dark grey solids (surface *Site - Asphalt*), 10 cm thick, lying on the terrain |
-| **Site - Roads proposed** | the new carriageways, dark grey, 10 cm thick, on their designed profile with a 20 ‰ cross fall |
+| **Site - Roads proposed** | the new carriageways, dark grey, 10 cm thick, on their designed profile with a 20 ‰ cross fall, with their junction aprons and the driveways to the buildings |
 | **Site - Sidewalks proposed** | sidewalks, light grey (*Site - Paving*), 15 cm (kerb height) above the carriageway edge; the body reaches down to the carriageway's underside, so its side is the kerb |
 | **Site - Road centre lines** | centre lines of all streets (plan) |
 | **Site - Retaining walls** | the walls the new streets need, as 40 cm solid pieces with a footing (*Site - Concrete*); a bridge deck is a 1.2 m slab |
@@ -81,12 +83,17 @@ placed on the map (latitude, longitude and UTM survey point).
 The surfaces are made in the PLN with the colours in `archicad.surfaces`, so they can be changed there or later in
 Archicad's attribute manager.
 
-**How the streets sit in the terrain.** Each street surface is one continuous height function: a point takes the
-height of the centre line nearest to it, interpolated along that line, minus the cross fall. The centre lines'
-corners are rounded, surfaces of streets that meet are blended over 1 m, and each surface is smoothed over 1 m, so
-there are no steps at stations, bends or junctions. Streets side by side on clearly different levels (a slip road
-beside a highway) keep a step between them. The terrain runs `pavement_m` (10 cm) below a carriageway and kerb +
-10 cm below a sidewalk, so it passes under the kerb without a step. The street bodies are exactly that thick and lie
+**How the streets sit in the terrain.** All carriageways, existing and new, share one surface. A point takes the
+heights of the centre lines near it, each interpolated along its line and crowned by the cross fall, weighted by the
+point's distance beyond each street's edge. On a street its own surface counts, streets meeting at a junction blend,
+and paving between two streets slopes evenly from one edge to the other. The centre lines' corners are rounded and
+the surface is smoothed over 1 m, so there are no steps at stations, bends or junctions. Along its axes a new street
+keeps its designed surface, whatever runs beside it. Where two streets side by side lie on levels the paving between
+them can't join (steeper than 20 %, like a slip road beside a highway), that strip is ground, sloped or walled like
+the ground beside any paving. Paving beyond a street's edge (aprons, lay-bys) leaves the edge at the street's height
+and follows the ground within 10 %. A driveway that reaches a building runs toward its ground floor. A sidewalk is a
+kerb above the carriageway beside it. The terrain runs `pavement_m` (10 cm) below a carriageway and kerb + 10 cm below
+a sidewalk, so it passes under the kerb without a step. The street bodies are exactly that thick and lie
 on it, without overlapping it. The mesh has a point at every corner of the grid the bodies are triangulated on, and
 a line just inside each paved piece's edge at its underside. A second line 20 cm outside the paving lifts the ground
 flush with its top.
@@ -119,25 +126,41 @@ flush with its top.
    - The gaps between the new buildings are checked.
 8. **roads**:
    - **Existing streets** come from OpenStreetMap, only those on the ground: tunnels, covered passages and bridges
-     are left out. They are moved and widened to the drawing's kerb lines, and their profile follows the smoothed
-     ground.
-   - **New streets** come from the drawing: the carriageway, the axis lines and the sidewalks. Their profile is
-     designed for the whole network at once, following the rules below and staying as close to the ground as
-     possible. Where two streets share one carriageway (a fork, a junction, the legs of a hairpin), the slope across
+     are left out. OpenStreetMap splits a street into many pieces; they are joined back into whole streets. Each is
+     moved and widened to the drawing's kerb lines, and its profile follows the smoothed ground. At junctions the
+     streets meet on one point and at one height, with round ends and rounded kerb corners (6 m).
+   - **New streets** come from the drawing: the carriageway, the axis lines and the sidewalks. An axis line counts
+     only where it runs inside the carriageway, at least 1.5 m from its edge. Axis lines drawn along existing streets
+     or along the carriageway's edge (lane lines) are not new streets, and an axis drawn twice counts once. Their
+     profile is designed for the whole network at once, following the rules below and staying as close to the ground
+     as possible. Where two streets share one carriageway (a fork, a junction, the legs of a hairpin), the slope across
      it between them is kept within the grade limit too.
    - Every street surface stops at the buildings.
    - Where a new street can't join an existing one at its height within the rules, the existing street is regraded
      locally, at 4 % at most.
    - Junction kerb radii, dead ends, sidewalk widths, wheelchair grades and the new buildings' fire access (a street
      within 25 m) are checked.
-9. **earthworks**: builds the street surfaces (see "How the streets sit in the terrain" above), sets them into the
-   terrain and adds side slopes of 1:1.5 from their edges until they meet the ground.
+9. **earthworks**: decides which paving is built in 3D, builds the street surfaces (see "How the streets sit in the
+   terrain" above), sets them into the terrain and adds side slopes of 1:1.5 from their edges until they meet the
+   ground.
+   - Paving, in this order:
+     - the drawing's carriageway along a new street's axis is new carriageway;
+     - an existing street stays one where the drawing's carriageway only covers it;
+     - the drawing's carriageway that joins a street within 25 m of its edge is paving too (junction aprons, the
+       roundabout, lay-bys), where joining the street takes no more than 1 m of cut or fill;
+     - a piece of it that reaches a building (up to 600 m²) is that building's access and is always built;
+     - the drawing's sidewalks count along the streets;
+     - gaps narrower than 6 m between paved pieces (medians, strips between a new and an old street) are paved too:
+       existing street beside existing streets, else new carriageway (if it fits the ground like an apron).
+
+     What remains (a plaza on a slope, a parking lot joining no street, the verge beside a highway) stays in 2D.
    - Beside existing streets the ground is only eased onto their edge, within 3 m. That regrading is reported apart
      from the cut and fill.
    - The ground under the buildings stays as it is. Slopes stop at their walls.
    - A street that would stand more than 8 m above the ground is a bridge or viaduct: the ground stays as it is under
      it.
-   - Retaining walls are found where the slopes can't meet the ground, and cut into pieces for Archicad.
+   - Retaining walls are found where the slopes can't meet the ground, where they run into an existing street, at
+     bridge abutments and between streets side by side on different levels. They are cut into pieces for Archicad.
    - Cut and fill are computed.
 10. **archicad**: writes the PLN, then checks and saves it. It opens its own Archicad and never touches another open
     project.
@@ -213,6 +236,9 @@ Add these after the file names, for example `dwg2ac.bat plan.dwg survey.e57 --st
 | to redo a step | `--only roads --force` (or `--from roads`) |
 | to start afresh (delete results and cache) | `dwg2ac.bat clean plan.dwg` |
 | thicker paving | `--set roads.profile.pavement_m=0.2` |
+| less of the drawing's paving built in 3D | `--set roads.profile.paving_reach_m=12 --set roads.profile.paving_max_cut_fill_m=0.5` |
+| sharper kerb corners at existing junctions | `--set roads.existing.kerb_return_m=3` |
+| narrow gaps between paved pieces left open | `--set roads.profile.close_gaps_m=0` |
 
 To keep values for a project, write only those keys into `config\project.json`, in the layout of
 `config\default.json`. All settings, each with a short note, are in `config\default.json`.
@@ -254,8 +280,9 @@ To keep values for a project, write only those keys into `config\project.json`, 
 - New buildings without a drawn shadow are shown 1 storey high and listed.
 - Buildings and walls are massing (Morph solids), not Archicad walls or slabs.
 - Bridges are shown as the street deck above the ground. Piers are not modelled.
-- Existing streets side by side on different levels meet with a step inside the street body, not a modelled wall.
-- Paved areas with no street axis through them (ramps, parking) stay on the existing ground.
+- OpenStreetMap bridges and flyovers are left out, so a street that continues onto one ends there.
+- The drawing's paving that joins no street, lies farther than 25 m from one, or would need more than 1 m of cut or
+  fill (a plaza on a slope, a verge on an embankment) stays in 2D on the existing ground.
 - PDFs are read with PyMuPDF (AGPL licence, fine for in-house use).
 
 Street and building data © OpenStreetMap contributors (ODbL). Place names from OpenStreetMap's Nominatim.

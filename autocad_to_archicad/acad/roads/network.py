@@ -2,17 +2,20 @@
 
 Heights are measured to the centre lines themselves (their segments), not to the nearest station: a point's station
 and centre height are interpolated along the nearest segment, so a surface is continuous along a street. Where
-streets meet, a point is near several centre lines: its height blends each street's own surface, weighted by
-exp(-(distance - smallest distance) / blend_m), so junctions are smooth too; away from junctions only the street's own
-centre line counts. Streets side by side at clearly different levels (a slip road beside a highway, split
-carriageways on a slope) are not blended: the slope between them would be steeper than STEP_SLOPE, so they keep a
-step (a wall) where their areas meet. Carriageway surface = centre height - cross fall x distance from the centre (crowned, falling to
+streets meet or run side by side, a point blends the surfaces of the streets near it, weighted by the inverse square
+of its distance beyond each street's edge (+ blend_m / 4): on a street its own surface counts (others only by a
+fraction of a per cent), in the overlap of streets meeting at a junction they count alike, and paving between two
+streets slopes evenly from the edge of one to the edge of the other. Streets farther than GAP_M beyond the nearest
+edge do not count (their weight fades out before). Streets side by side at clearly different levels (a slip road
+beside a highway, split carriageways on a slope) are not blended: the slope between them would be steeper than
+STEP_SLOPE, so they keep a step where their areas meet. Carriageway surface = centre height - cross fall x distance from the centre (crowned, falling to
 both kerbs; beyond the edge it stays at the edge height). The centre lines' corners (a polyline through stations) are
 rounded first (corner cutting), else a point inside a bend would jump between the stations of the two segments."""
 import numpy as np
 from shapely import STRtree, linestrings, points
 
 STEP_SLOPE = 0.25  # steeper than this between two streets' centre lines: a step, not a slope
+GAP_M = 10.0  # streets whose edge is this much farther than the nearest street's edge do not count
 
 
 def rounded(v, times=3):
@@ -92,7 +95,7 @@ class RoadNet:
         near = self.project(xy)
         if self.blend <= 0:
             return fn(near["z"], near["d"], near["hw"])
-        reach = near["d"] + 6.0 * self.blend
+        reach = near["d"] + GAP_M + 2.0 * float(max(self.H0.max(), self.H1.max()))
         inp, seg = self.tree.query(points(xy), predicate="dwithin", distance=reach)
         d, _, z, hw, _ = self._on(seg, xy[inp])
         # each street once per point: its nearest segment
@@ -101,9 +104,13 @@ class RoadNet:
         inp, edge, d, z, hw = inp[order], edge[order], d[order], z[order], hw[order]
         first = np.r_[True, (inp[1:] != inp[:-1]) | (edge[1:] != edge[:-1])]
         inp, d, z, hw = inp[first], d[first], z[first], hw[first]
-        w = np.exp(-(d - near["d"][inp]) / self.blend)
+        e = np.maximum(d - hw, 0.0)  # distance beyond the street's edge
+        e_min = np.full(len(xy), np.inf)
+        np.minimum.at(e_min, inp, e)
+        fade = np.clip(1.0 - (e - e_min[inp]) / GAP_M, 0.0, 1.0) ** 2
+        w = fade / (e + 0.25 * self.blend) ** 2
         w[np.abs(z - near["z"][inp]) > STEP_SLOPE * (d + near["d"][inp]) + 0.05] = 0.0  # another level: no blend
-        w[d <= near["d"][inp]] = 1.0  # the nearest street itself
+        w[d <= near["d"][inp]] = np.maximum(w[d <= near["d"][inp]], 1e-9)  # the nearest street always counts
         num = np.bincount(inp, w * fn(z, d, hw), minlength=len(xy))
         den = np.bincount(inp, w, minlength=len(xy))
         return num / np.maximum(den, 1e-12)

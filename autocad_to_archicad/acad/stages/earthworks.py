@@ -1,12 +1,23 @@
 """Stage earthworks: the street surfaces, and the terrain made to fit them (terrain grid, drawing metres, altitudes).
 
-The street surfaces, one per kind of paving, each continuous and smooth:
-  existing streets   OSM centre lines fitted to the kerbs, on their smoothed ground profile (roads stage)
-  new carriageways   on the designed profile, crowned (the cross fall falls to both kerbs)
-  new sidewalks      a kerb height above the carriageway edge, rising gently away from it
-A point takes the height of the centre line nearest to it, interpolated along that line (not the nearest station), and
-each surface is smoothed a little (roads.profile.surface_smoothing_m) so junctions and tight bends have no steps; the
-kerb between a carriageway and its sidewalk stays sharp.
+The paving is one connected network:
+  existing streets   OSM streets joined into one network, fitted to the kerbs, on their smoothed ground profile
+  new carriageways   the drawing's carriageway along the new axes, and where it joins a street within
+                     roads.profile.paving_reach_m of a street's edge and joining it takes little earthwork
+                     (paving_max_cut_fill_m): junction aprons, the roundabout, driveways, lay-bys; where it only
+                     covers an existing street, that street stays
+  new sidewalks      the drawing's sidewalks along the streets
+ALL carriageways, old and new, share ONE surface: a point takes the height of the centre line nearest to it (existing
+and new streets alike), interpolated along that line (not the nearest station), crowned by the cross fall and blended
+where streets meet, so new streets run into the old ones without a step. Along its own axes (half width + 1 m) a
+new street keeps its designed surface, whatever runs beside it. Gaps narrower than roads.profile.close_gaps_m between
+paved pieces (medians, strips between a new and an old street) are paved too. Paving beyond a street's edge (aprons,
+driveways) leaves the edge at its height and follows the ground within roads.profile.paving_max_grade_permille.
+A sidewalk is a kerb height above the carriageway beside it (its new street's, else the existing street's), rising
+gently away from it. Each surface is smoothed a little (roads.profile.surface_smoothing_m); the kerb between a
+carriageway and its sidewalk stays sharp. Where streets side by side lie on clearly different levels, the paving
+between them would be steeper than roads.profile.paving_max_slope_permille: that strip is ground instead, shaped like
+the ground beside any paving (below).
 
 Layering (the Archicad file is built the same way): every paved surface is a body lying ON the terrain. The terrain
 under a carriageway = its surface - pavement_m, under a sidewalk = its surface - kerb - pavement_m, so the ground runs
@@ -18,7 +29,8 @@ on under the kerb without a step. Around the paving the ground meets the paved e
                     ground is a bridge: the ground stays as it is under it
   existing streets  the ground beside them is eased onto their edge within existing.edge_blend_m (no new walls)
   buildings         the ground under the buildings (buildings.json) stays as it is; slopes stop at their walls
-Paved areas no street axis runs through (ramps, parking, driveways) stay drawn in 2D on the existing ground.
+Paved parts that join no street or lie farther from one (a parking lot on its own, plazas) stay drawn in 2D on the
+existing ground.
 Results: terrain_design.tif, cutfill.tif, surfaces.npz (surfaces and masks), walls.npy, earthworks.json (volumes,
 walls, bridges, and the paved areas as polygons: the Archicad bodies are exactly these)."""
 import json
@@ -27,12 +39,12 @@ import math
 import numpy as np
 from scipy import ndimage
 from scipy.spatial import cKDTree
-from shapely import contains_xy
-from shapely.geometry import mapping, shape
+from shapely import STRtree, contains_xy, points
+from shapely.geometry import LineString, Point, mapping, shape
 from shapely.ops import unary_union
 
 from ..config import settings
-from ..geometry.raster import read_raster, write_raster
+from ..geometry.raster import read_raster, sample_raster, write_raster
 from ..roads.geometry import as_polygons, strip_polygon
 from ..roads.network import RoadNet
 from ..util import file_signature, load_json, log, save_json, skip, warn
@@ -63,32 +75,127 @@ def _clean(geom, min_area=1.0):
     return unary_union(parts) if parts else None
 
 
-def paved_areas(roads, pr, band, outline):
-    """The paved areas the model is built from: {existing, carriageway, sidewalks, loose} (shapely or None). A new
-    carriageway / sidewalk counts only along a street axis (within its half width + 1 m, sidewalks + band); what no
-    axis runs through (ramps, parking, driveways) is 'loose' and stays on the existing ground."""
+def strips(edges, extra):
+    """The area within half width + extra of a set of centre lines."""
+    return unary_union([strip_polygon(e["xy"], e["half_w"] + extra) for e in edges])
+
+
+def paved_areas(roads, pr, net, outline, band, reach):
+    """The paved areas the model is built from: {existing, carriageway, sidewalks, loose} (shapely or None).
+    In this order: the drawing's carriageway along a new street axis (within its half width + 1 m) is new carriageway;
+    an existing street stays one where the drawing's carriageway merely covers it; the drawing's carriageway joining
+    either and within `reach` of a street's edge is paving too (junction aprons, the roundabout, driveways, lay-bys);
+    sidewalks count along a street (within its half width + `band`). The rest (a parking lot on its own, plazas) is
+    'loose' and stays on the existing ground."""
     g = lambda k: shape(roads[k]) if roads.get(k) else None
     car, sw, ex = g("carriageway_area"), g("sidewalk_area"), g("existing_area")
     loose = []
-    if pr.edges:
-        if car is not None:
-            keep = car.intersection(unary_union([strip_polygon(e["xy"], e["half_w"] + 1.0) for e in pr.edges]))
-            loose.append(car.difference(keep))
-            car = keep
+    if pr.edges and car is not None:
+        keep = car.intersection(strips(pr.edges, 1.0))
+        rest = car.difference(keep)
+        if ex is not None:
+            rest = rest.difference(ex)
+        near = rest.intersection(strips(net.edges, reach))
+        base = unary_union([a for a in (keep, ex) if a is not None]).buffer(0.3)
+        joined = [q for q in as_polygons(near) if q.intersects(base)]
+        loose.append(rest.difference(unary_union(joined)) if joined else rest)
+        car = unary_union([keep] + joined)
         if sw is not None:
-            keep = sw.intersection(unary_union([strip_polygon(e["xy"], e["half_w"] + band + 1.0) for e in pr.edges]))
-            if car is not None:
-                keep = keep.difference(car)
-            loose.append(sw.difference(keep))
-            sw = keep
-    else:
+            along = sw.intersection(strips(net.edges, band + 1.0)).difference(car)
+            loose.append(sw.difference(along).difference(car))
+            sw = along
+    elif car is not None or sw is not None:
         loose += [a for a in (car, sw) if a is not None]
         car = sw = None
     new = [a for a in (car, sw) if a is not None and not a.is_empty]
     if ex is not None and new:
         ex = ex.difference(unary_union(new))
+    loose = [q for q in loose if q is not None and not q.is_empty]
     out = {"existing": ex, "carriageway": car, "sidewalks": sw, "loose": unary_union(loose) if loose else None}
     return {k: _clean(v.intersection(outline)) if v is not None else None for k, v in out.items()}
+
+
+def close_gaps(areas, width, outline, blds):
+    """Gaps narrower than `width` between paved pieces (a median, the strip between a new street and an old one, a
+    sliver left by a cut) become paving too: existing street beside existing streets (a median), else new carriageway
+    (which must fit the ground like an apron); the drawing's paving found unfit to build (loose) is not taken again.
+    Returns (areas, the gaps closed). Where the two sides lie on levels the paving cannot join, the surface check turns
+    the strip into ground again."""
+    kinds = [k for k in ("existing", "carriageway", "sidewalks") if areas.get(k) is not None]
+    if not kinds or width <= 0:
+        return areas, None
+    paved = unary_union([areas[k] for k in kinds])
+    r = width / 2.0
+    gaps = paved.buffer(r, join_style=2, mitre_limit=2.0).buffer(-r, join_style=2, mitre_limit=2.0).difference(paved)
+    if blds is not None:
+        gaps = gaps.difference(blds.buffer(0.1))
+    if areas.get("loose") is not None:  # the drawing's paving found unfit to build (a verge on a slope) stays so
+        gaps = gaps.difference(areas["loose"].buffer(0.1))
+    gaps = gaps.intersection(outline)
+    # only gaps between paving (paving along most of their edge: a median, a strip between two streets), not a notch
+    # in the paving's outer edge that is open to the terrain
+    rim = paved.buffer(0.05)
+    parts = [g for g in as_polygons(gaps) if g.area >= 0.5 and g.boundary.intersection(rim).length >= 0.6 * g.length]
+    if not parts:
+        return areas, None
+    # a gap beside an existing street is existing street (a median); one beside new paving is new carriageway (it
+    # must still fit the ground like an apron, else it stays ground)
+    add = {k: [] for k in kinds}
+    news = [areas[k] for k in ("carriageway", "sidewalks") if areas.get(k) is not None]
+    new = unary_union(news) if news else None
+    for g in parts:
+        edge = g.boundary
+        on_ex = edge.intersection(areas["existing"].buffer(0.05)).length if areas.get("existing") is not None else 0.0
+        on_new = edge.intersection(new.buffer(0.05)).length if new is not None else 0.0
+        k = "existing" if on_ex >= on_new else "carriageway"
+        add.setdefault(k, []).append(g)
+    out = dict(areas)
+    for k, gs in add.items():
+        if gs:
+            out[k] = _clean(unary_union([a for a in [areas.get(k)] + gs if a is not None]))
+    # a gap given to one kind is not also another's
+    if out.get("carriageway") is not None and out.get("sidewalks") is not None:
+        out["sidewalks"] = _clean(out["sidewalks"].difference(out["carriageway"]))
+    new = [out[k] for k in ("carriageway", "sidewalks") if out.get(k) is not None]
+    if out.get("existing") is not None and new:
+        out["existing"] = _clean(out["existing"].difference(unary_union(new)))
+    return out, unary_union(parts)
+
+
+def trimmed(edges, cover):
+    """Streets with the stretches under `cover` cut out (an old street the new design paves over no longer shapes the
+    surface there); heights, widths and stations interpolated at the cuts."""
+    if cover is None or cover.is_empty:
+        return edges
+    out = []
+    for e in edges:
+        line = LineString(e["xy"])
+        if not line.intersects(cover):
+            out.append(e)
+            continue
+        rest = line.difference(cover)
+        for piece in [rest] if rest.geom_type == "LineString" else [g for g in getattr(rest, "geoms", [])
+                                                                     if g.geom_type == "LineString"]:
+            if piece.length < 1.0:
+                continue
+            c = np.asarray(piece.coords)
+            s_ = np.array([line.project(Point(q)) for q in c])
+            f = dict(e)
+            f["xy"], f["s"] = c, s_
+            for k in ("z", "half_w", "ground"):
+                if k in e:
+                    f[k] = np.interp(s_, e["s"], e[k])
+            out.append(f)
+    return out
+
+
+def carriageway_z(net, xy, ground, grade):
+    """The carriageway surface of a street network (crowned, blended at junctions); beyond a street's edge (aprons,
+    driveways) it leaves the edge at its height and follows the ground within `grade`."""
+    z = net.surface_z(xy)
+    p = net.project(xy)
+    off = np.maximum(p["d"] - p["hw"], 0.0)
+    return z + np.clip(np.nan_to_num(ground(xy) - z), -grade * off, grade * off)
 
 
 def sidewalk_z(net, xy, kerb, cf_sw, max_rise_run=10.0):
@@ -98,13 +205,14 @@ def sidewalk_z(net, xy, kerb, cf_sw, max_rise_run=10.0):
 
 
 def surface_on(fn, mask, X, Y, sigma_px, ring=2):
-    """A paved surface: fn(xy) at the cells of `mask` and a ring of `ring` cells around it (so it can be sampled up
-    to its edge), smoothed within them (normalised Gaussian, sigma in cells); NaN elsewhere."""
+    """A paved surface: fn(xy) (or fn(xy, rows, cols)) at the cells of `mask` and a ring of `ring` cells around it (so
+    it can be sampled up to its edge), smoothed within them (normalised Gaussian, sigma in cells); NaN elsewhere."""
     top = np.full(mask.shape, np.nan)
     if not mask.any():
         return top
     M = ndimage.binary_dilation(mask, iterations=ring)
-    top[M] = fn(np.column_stack([X[M], Y[M]]))
+    rr, cc = np.nonzero(M)
+    top[rr, cc] = fn(np.column_stack([X[rr, cc], Y[rr, cc]]), rr, cc)
     if sigma_px > 0:
         w = ndimage.gaussian_filter(M.astype(np.float64), sigma_px)
         v = ndimage.gaussian_filter(np.where(M, top, 0.0), sigma_px)
@@ -257,6 +365,7 @@ def run(job, force=False):
         skip(f"earthworks: already done (cut {prev['cut_m3']:,.0f} m3, fill {prev['fill_m3']:,.0f} m3)")
         return
     prof, ew = cfg["roads"]["profile"], cfg["roads"]["earthworks"]
+    band = float(cfg["roads"]["proposed"]["sidewalk_band_m"])
     cf, cf_sw = float(prof["carriageway_crossfall_permille"]) / 1000.0, float(prof["sidewalk_crossfall_permille"]) / 1000.0
     kerb, pav = float(prof["kerb_m"]), float(prof["pavement_m"])
     fill_hv, cut_hv = float(ew["fill_slope_h_per_v"]), float(ew["cut_slope_h_per_v"])
@@ -268,28 +377,138 @@ def run(job, force=False):
     blend = float(prof["junction_blend_m"])
     ex = RoadNet.from_json(roads["existing"], None, cf, blend)
     pr = RoadNet.from_json(roads["proposed"], None, cf, blend)
+    net = RoadNet(ex.edges + pr.edges, None, cf, blend)  # every street: one carriageway surface
 
     # ---- the paved areas and their surfaces
-    areas = paved_areas(roads, pr, float(cfg["roads"]["proposed"]["sidewalk_band_m"]), shape(ter["outline"]))
+    areas = paved_areas(roads, pr, net, shape(ter["outline"]), band, float(prof["paving_reach_m"]))
+    # where the new streets pave over an old one, the old centre line no longer counts
+    new = [areas[k] for k in ("carriageway", "sidewalks") if areas[k] is not None]
+    if new and ex.edges:
+        net = RoadNet(trimmed(ex.edges, unary_union(new)) + pr.edges, None, cf, blend)
     blds = [shape(it["polygon"]) for k in ("existing", "proposed") for it in bj[k]]
     BLD = mask_of(unary_union(blds), X, Y) if blds else np.zeros(z0.shape, bool)
-    EX = mask_of(areas["existing"], X, Y) & ~BLD if ex.edges else np.zeros(z0.shape, bool)
+    # narrow gaps between the paved pieces are closed: the paving is one piece
+    areas, gaps = close_gaps(areas, float(prof["close_gaps_m"]), shape(ter["outline"]),
+                             unary_union(blds) if blds else None)
+    GAP = mask_of(gaps, X, Y) & ~BLD
+    EX = mask_of(areas["existing"], X, Y) & ~BLD if net.edges else np.zeros(z0.shape, bool)
     CAR = mask_of(areas["carriageway"], X, Y) & ~BLD
+    g_pave = float(prof["paving_max_grade_permille"]) / 1000.0
+    # what paving beyond a street's edge runs towards: the ground, or for a building's access its ground floor
+    target = z0.copy()
+    ground = lambda xy: sample_raster(target, gt, xy)
+    # aprons (the drawing's carriageway beyond the new axes) only where the ground lets them join the street: where
+    # that would take more than paving_max_cut_fill_m of cut / fill (an embankment, a plaza on a slope) they stay 2D.
+    # An apron reaching a building (a driveway, a garage entrance: up to access_max_m2) is its access and stays: it
+    # runs from the street towards the building's ground floor at the paving grade, walls beside it if need be
+    AXES = CAR & mask_of(strips(pr.edges, 1.0), X, Y) if pr.edges else np.zeros(z0.shape, bool)
+    AP = CAR & ~AXES
+    ACCESS = np.zeros(z0.shape, bool)
+    if AP.any():
+        items = [it for k in ("existing", "proposed") for it in bj[k]]
+        lab, n = ndimage.label(AP)
+        at_bld = np.unique(lab[AP & ndimage.binary_dilation(BLD, iterations=max(1, int(round(2.0 / res))))])
+        sizes = ndimage.sum(AP, lab, np.arange(n + 1)) * res * res
+        ACCESS = np.isin(lab, [k for k in at_bld if k > 0 and sizes[k] <= float(prof["access_max_m2"])])
+        if ACCESS.any() and items:
+            rr, cc = np.nonzero(ACCESS)
+            tree = STRtree([shape(it["polygon"]) for it in items])
+            near = tree.query_nearest(points(np.column_stack([X[rr, cc], Y[rr, cc]])), all_matches=False)[1]
+            target[rr, cc] = [items[int(k)]["ground_floor_z"] for k in near]
+        rr, cc = np.nonzero(AP)
+        xy = np.column_stack([X[rr, cc], Y[rr, cc]])
+        fits = np.zeros(z0.shape, bool)
+        fits[rr, cc] = np.abs(np.nan_to_num(ground(xy) - carriageway_z(net, xy, ground, g_pave))) <= \
+            float(prof["paving_max_cut_fill_m"])
+        fits |= ACCESS
+        lab, _ = ndimage.label((AP & fits) | AXES | EX)
+        joined = np.isin(lab, np.unique(lab[AXES | EX]))
+        drop = AP & ~(fits & joined)
+        if drop.any():
+            gone = mask_polygon(drop, gt).buffer(0.3, join_style=2).buffer(-0.3, join_style=2).simplify(0.2)
+            gone = gone.intersection(areas["carriageway"])
+            areas["carriageway"] = _clean(areas["carriageway"].difference(gone))
+            areas["loose"] = _clean(unary_union([a for a in (areas["loose"], gone) if a is not None]))
+            CAR = mask_of(areas["carriageway"], X, Y) & ~BLD
     SW = mask_of(areas["sidewalks"], X, Y) & ~BLD & ~CAR
     EX &= ~(CAR | SW)
     LOOSE = mask_of(areas["loose"], X, Y) & ~BLD & ~(EX | CAR | SW)
     sig = float(prof["surface_smoothing_m"]) / res
-    top_ex = surface_on(ex.surface_z, EX, X, Y, sig) if ex.edges else np.full(z0.shape, np.nan)
-    top_car = surface_on(pr.surface_z, CAR, X, Y, sig) if pr.edges else np.full(z0.shape, np.nan)
-    top_sw = surface_on(lambda xy: sidewalk_z(pr, xy, kerb, cf_sw), SW, X, Y, sig) if pr.edges else \
-        np.full(z0.shape, np.nan)
+    CARR = EX | CAR  # all carriageways: one surface
+    if net.edges:
+        # along its axes a new street has its designed surface, whatever runs beside it (smoothed only with itself);
+        # the paving around it is smoothed towards it, so it joins its aprons and the streets it ties into
+        raw = surface_on(lambda xy, *_: carriageway_z(net, xy, ground, g_pave), CARR, X, Y, 0.0)
+        if AXES.any():
+            rr, cc = np.nonzero(AXES)
+            raw[rr, cc] = pr.surface_z(np.column_stack([X[rr, cc], Y[rr, cc]]))
+        top_carr = surface_on(lambda xy, rr, cc: raw[rr, cc], CARR, X, Y, sig)
+        if AXES.any():
+            own = surface_on(lambda xy, *_: pr.surface_z(xy), AXES, X, Y, sig)
+            top_carr[AXES] = own[AXES]
+    else:
+        top_carr = np.full(z0.shape, np.nan)
+    # sidewalks: a kerb above the carriageway beside them (the new one within the sidewalk band, else the existing
+    # street), rising away from it
+    if CARR.any():
+        def beside(M):
+            if not M.any():
+                return np.full(z0.shape, np.inf), np.full(z0.shape, np.nan)
+            dist, (ri, ci) = ndimage.distance_transform_edt(~M, return_indices=True)
+            return dist * res, np.where(M, top_carr, np.nan)[ri, ci]
+        (d_car, z_car), (d_ex, z_ex) = beside(CAR), beside(EX)
+        own = d_car <= band + 1.0
+        dist, edge = np.where(own, d_car, d_ex), np.where(own, z_car, z_ex)
+        raw_sw = surface_on(lambda xy, rr, cc: edge[rr, cc] + kerb + cf_sw * np.clip(dist[rr, cc] - 0.5 * res, 0.0, 10.0),
+                            SW, X, Y, 0.0)
+        if pr.edges:
+            # along a new street its sidewalk follows that street (not an access or a neighbour beside it)
+            ALONG = np.isfinite(raw_sw) & mask_of(strips(pr.edges, band + 1.0), X, Y)
+            rr, cc = np.nonzero(ALONG)
+            raw_sw[rr, cc] = sidewalk_z(pr, np.column_stack([X[rr, cc], Y[rr, cc]]), kerb, cf_sw)
+        top_sw = surface_on(lambda xy, rr, cc: raw_sw[rr, cc], SW, X, Y, sig)
+    else:
+        top_sw = surface_on(lambda xy, *_: sidewalk_z(net, xy, kerb, cf_sw), SW, X, Y, sig) if net.edges else \
+            np.full(z0.shape, np.nan)
+    top_ex = top_car = top_carr  # one surface: the Archicad bodies of both kinds are cut from it
+    # a level step inside the paving (streets side by side on clearly different levels, the paving between them
+    # steeper than paving_max_slope_permille) is no paving but ground: between two paved levels a bank flush with both,
+    # else shaped like any ground beside the paving (a wall where the levels are too close) (the new streets along
+    # their axes always stay paving: their profile governs there)
+    max_slope = float(prof["paving_max_slope_permille"]) / 1000.0
+
+    def steep(top, M):
+        gy, gx = np.gradient(np.where(M, top, np.nan), res)
+        return M & ndimage.binary_dilation(np.nan_to_num(np.hypot(gx, gy)) > max_slope) & ~AXES
+    BANK = steep(top_carr, CARR) | steep(top_sw, SW)
+    bank_top = np.where(CARR, top_carr, top_sw)
+    if BANK.any():
+        gone = mask_polygon(BANK, gt).buffer(0.3, join_style=2).buffer(-0.3, join_style=2).simplify(0.2)
+        for k in ("existing", "carriageway", "sidewalks"):
+            if areas[k] is not None:
+                areas[k] = _clean(areas[k].difference(gone))
+        was = CARR | SW
+        EX = mask_of(areas["existing"], X, Y) & ~BLD
+        CAR = mask_of(areas["carriageway"], X, Y) & ~BLD
+        SW = mask_of(areas["sidewalks"], X, Y) & ~BLD & ~CAR
+        EX &= ~(CAR | SW)
+        CARR = EX | CAR
+        BANK = was & ~(CARR | SW)
     surf = np.full(z0.shape, np.nan)  # the finished paved surface
-    for M, top in ((EX, top_ex), (CAR, top_car), (SW, top_sw)):
-        surf[M] = top[M]
+    surf[CARR] = top_carr[CARR]
+    surf[SW] = top_sw[SW]
     PAVED = EX | CAR | SW
     z1 = z0.copy()
     z1[EX | CAR] = surf[EX | CAR] - pav
     z1[SW] = surf[SW] - kerb - pav  # the ground runs on under the kerb at the carriageway's bed
+    # a level step with paving on both sides is a bank from one paving edge to the other, flush with both (the
+    # surface between them, only too steep to pave); one with paving on one side only is ground like any other
+    r_cells = max(1, int(round(float(prof["close_gaps_m"]) / 2.0 / res)))
+    yy, xx = np.mgrid[-r_cells:r_cells + 1, -r_cells:r_cells + 1]
+    # (a closed gap that turns out to be a level step was never paving: it stays the natural ground)
+    BETWEEN = BANK & ~GAP & ndimage.binary_closing(PAVED | BLD, structure=(xx ** 2 + yy ** 2) <= r_cells ** 2) & \
+        np.isfinite(bank_top)
+    z1[BETWEEN] = bank_top[BETWEEN]
 
     # ---- new streets: bridges, side slopes, walls
     PR = CAR | SW
@@ -312,7 +531,7 @@ def run(job, force=False):
         reach = float(ew["max_daylight_m"])
         # the slopes start at the finished surface: the ground meets the paving's edge flush
         lo, hi, near_lo, near_hi, near_d = side_slopes(z0.shape, rr, cc, seg, surf, res, reach, fill_hv, cut_hv)
-        D = ~PAVED & ~BLD & valid & np.isfinite(near_d)
+        D = ~PAVED & ~BETWEEN & ~BLD & valid & np.isfinite(near_d)
         both = D & (lo <= hi)  # every slope agrees: above all fill slopes, below all cut slopes
         z1[both] = np.clip(z0[both], lo[both], hi[both])
         clash = D & ~both  # slopes of two street stretches overlap: the nearer one wins, a wall between them
@@ -332,10 +551,13 @@ def run(job, force=False):
         # a bridge ends at an abutment: the step between the deck's ground and the embankment beside it
         at_bridge = cliffs(z1, z0, ndimage.binary_dilation(bridge, iterations=2) & ~bridge & valid, 0.5) if bridge.any() \
             else np.zeros(z0.shape, bool)
-        wall = rim | at_ex | at_clash | at_bridge
+        # between paving on clearly different levels (streets side by side)
+        at_steps = cliffs(z1, z0, ndimage.binary_dilation(BANK, iterations=2) & ~PAVED & valid, 0.5) if BANK.any()             else np.zeros(z0.shape, bool)
+        wall = rim | at_ex | at_clash | at_bridge | at_steps
         walls = {"cells": int(wall.sum()), "length_m": round(float(wall.sum()) * res, 1),
                  "at_reach_m": round(float(rim.sum()) * res), "at_existing_streets_m": round(float(at_ex.sum()) * res),
                  "between_streets_m": round(float(at_clash.sum()) * res), "at_bridges_m": round(float(at_bridge.sum()) * res),
+                 "at_level_steps_m": round(float(at_steps.sum()) * res),
                  "clash_area_m2": round(float(clash.sum()) * res * res)}
         # beside a building the slope stops at its wall, which retains the step (no separate wall)
         at_bld = D & ndimage.binary_dilation(BLD) & (np.abs(z1 - z0) > 0.5)
@@ -355,7 +577,7 @@ def run(job, force=False):
         dist, (ri, ci) = ndimage.distance_transform_edt(~EX, return_indices=True)
         dd = dist * res
         h = surf[ri, ci]
-        EB = ~PAVED & ~BLD & valid & ~np.isfinite(near_d) & (dd <= ease) & np.isfinite(h)
+        EB = ~PAVED & ~BETWEEN & ~BLD & valid & ~np.isfinite(near_d) & (dd <= ease) & np.isfinite(h)
         target = np.clip(z0, h - dd / fill_hv, h + dd / cut_hv)
         z1[EB] = (z0 + (1.0 - dd / ease) * (target - z0))[EB]
 
@@ -369,22 +591,30 @@ def run(job, force=False):
     write_raster(job.w("cutfill.tif"), np.where(valid, dz_works, np.nan), gt)
     f32 = lambda a: a.astype(np.float32)
     np.savez_compressed(job.w("surfaces.npz"), top_ex=f32(top_ex), top_car=f32(top_car), top_sw=f32(top_sw),
-                        EX=EX, CAR=CAR, SW=SW, LOOSE=LOOSE, BLD=BLD, BRIDGE=bridge, gt=np.array(gt))
+                        EX=EX, CAR=CAR, SW=SW, LOOSE=LOOSE, BLD=BLD, BRIDGE=bridge, BANK=BANK, gt=np.array(gt))
     bridge_area = mask_polygon(bridge, gt) if bridge.any() else None
     if bridges:
         warn("earthworks: bridges / viaducts where a street would stand more than "
              f"{ew['max_fill_m']} m above the ground: " + ", ".join(
                  f"{b['street']} {b['from_m']:.0f}-{b['to_m']:.0f} m (up to {b['max_height_m']:.0f} m high)" for b in bridges))
     if LOOSE.any():
-        log(f"earthworks: {float(LOOSE.sum()) * area:,.0f} m2 of paved area has no street axis through it "
-            "(ramps, parking, driveways): it stays drawn in 2D on the existing ground")
+        log(f"earthworks: {float(LOOSE.sum()) * area:,.0f} m2 of the drawing's paving joins no street, lies more than "
+            f"{prof['paving_reach_m']} m beyond one or on a slope (plazas, parking, embankments): it stays drawn in 2D on "
+            "the existing ground")
+    if GAP.any():
+        log(f"earthworks: {float(GAP.sum()) * area:,.0f} m2 of gaps narrower than {prof['close_gaps_m']} m between the "
+            "paved pieces (medians, strips between new and old streets) closed with paving")
+    if BANK.any():
+        log(f"earthworks: {float(BANK.sum()) * area:,.0f} m2 between paving on clearly different levels (streets side by "
+            f"side) would be steeper than {prof['paving_max_slope_permille']} per mille: ground there, sloped or walled "
+            "like the ground beside any paving")
     geo = lambda g: mapping(g) if g is not None and not g.is_empty else None
     result = {"inputs": wanted, "cut_m3": round(cut), "fill_m3": round(fill), "balance_m3": round(fill - cut),
               "loose_paved_m2": round(float(LOOSE.sum()) * area),
               "max_cut_m": round(float(max(0.0, -dz_works.min())), 2), "max_fill_m": round(float(max(0.0, dz_works.max())), 2),
               "changed_area_m2": round(float((np.abs(dz_works) > 0.05).sum()) * area), "retaining_walls": walls,
               "bridges": bridges, "kept_under_buildings_m2": round(float(BLD.sum()) * area),
-              "existing_edges_eased_m3": round(eased),
+              "existing_edges_eased_m3": round(eased), "gaps_closed_m2": round(float(GAP.sum()) * area), "level_steps_m2": round(float(BANK.sum()) * area),
               "areas_m2": {"existing_streets": round(float(EX.sum()) * area), "carriageway": round(float(CAR.sum()) * area),
                            "sidewalks": round(float(SW.sum()) * area)},
               "paved": {k: geo(v) for k, v in areas.items()}, "bridge_area": geo(bridge_area)}
@@ -395,8 +625,10 @@ def run(job, force=False):
         f"{result['max_cut_m']} m, highest fill {result['max_fill_m']} m, {result['changed_area_m2'] / 1e4:.2f} ha changed")
     if walls["cells"]:
         warn(f"earthworks: retaining walls needed along about {walls['length_m']:,.0f} m (steps over 0.5 m where the side "
-             f"slopes do not meet the ground within {ew['max_daylight_m']} m, run into an existing street, or where two "
-             "street stretches are too close for their slopes)")
+             f"slopes do not meet the ground within {ew['max_daylight_m']} m ({walls['at_reach_m']:,} m), run into an "
+             f"existing street ({walls['at_existing_streets_m']:,} m), where two street stretches are too close for their "
+             f"slopes ({walls['between_streets_m']:,} m), at bridge abutments ({walls['at_bridges_m']:,} m) and between "
+             f"streets side by side on different levels ({walls['at_level_steps_m']:,} m))")
     if walls.get("at_buildings_m"):
         log(f"earthworks: the ground under the buildings is left as it is; beside them it changes by more than 0.5 m "
             f"along about {walls['at_buildings_m']:,} m (their walls retain it)")

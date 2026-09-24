@@ -185,6 +185,70 @@ class StreetSurface(unittest.TestCase):
         z = RoadNet([low, high], None, 0.02, blend_m=1.0).surface_z(np.array([[0.0, 3.0], [0.0, 5.0]]))
         self.assertTrue(np.allclose(z, [100.0 - 0.06, 103.0 - 0.06], atol=0.01), "3 m apart in height: a step")
 
+    def test_paving_between_streets_slopes_evenly(self):
+        from acad.roads.network import RoadNet
+        x = np.arange(-50, 51, 5.0)
+        a, b = self._edge(np.column_stack([x, 0 * x])), self._edge(np.column_stack([x, 16 + 0 * x]), z0=100.5)
+        net = RoadNet([a, b], None, 0.0, blend_m=1.0)
+        ys = np.linspace(-3, 19, 221)
+        z = net.surface_z(np.column_stack([np.zeros(len(ys)), ys]))
+        on_a, on_b, gap = ys <= 3.0, ys >= 13.0, (ys > 3.5) & (ys < 12.5)
+        self.assertLess(np.abs(z[on_a] - 100.0).max(), 0.01, "a street keeps its own surface")
+        self.assertLess(np.abs(z[on_b] - 100.5).max(), 0.01)
+        self.assertTrue((np.diff(z) >= -1e-9).all(), "from one edge to the other without a dip")
+        self.assertLess(np.abs(np.diff(z[gap])).max() / 0.1, 0.25, "spread over the gap, not a crease")
+
+
+class StreetNetwork(unittest.TestCase):
+    """Existing streets as one network; axes counted where they run in the new carriageway; which paving is which."""
+
+    def test_ways_join_and_junctions_meet(self):
+        from shapely.geometry import LineString
+        from acad.roads import existing as X
+        way1, way2 = LineString([(0, 0), (50, 0)]), LineString([(50, 0), (100, 0)])
+        side = LineString([(30, 0), (30, 40)])  # ends on the joined street's middle: a T
+        chains = X.chains([way1, way2, side])
+        self.assertEqual(len(chains), 2, "two ways end to end are one street")
+        main = {"xy": np.column_stack([np.linspace(0, 100, 21), np.full(21, 1.0)]), "s": np.linspace(0, 100, 21),
+                "z": np.linspace(100, 110, 21), "half_w": np.full(21, 4.0),
+                "line0": np.column_stack([np.linspace(0, 100, 21), np.zeros(21)])}
+        y = np.linspace(0, 40, 9)
+        st = {"xy": np.column_stack([np.full(9, 48.5), y]), "s": y, "z": np.full(9, 99.0), "half_w": np.full(9, 3.0),
+              "line0": np.column_stack([np.full(9, 50.0), y])}
+        border = LineString([(-500, -500), (-400, -500)])
+        out = X.join_junctions([main, st], border, length=20.0)
+        self.assertEqual(len(out), 1)
+        self.assertTrue(np.allclose(st["xy"][0], [48.5, 1.0], atol=0.05), "the side street ends on the main one")
+        self.assertAlmostEqual(float(st["z"][0]), 104.85, delta=0.05)
+        self.assertAlmostEqual(float(st["z"][-1]), 99.0, delta=1e-6, msg="the correction fades out")
+
+    def test_axes_only_inside_the_carriageway(self):
+        from shapely.geometry import LineString, box
+        from acad.roads.proposed import within_carriageway
+        car = box(0, -4, 100, 4)
+        axis = LineString([(-60, 0), (100, 0)])  # its first 60 m run along an existing street, outside
+        edge = LineString([(0, 3.5), (100, 3.5)])  # along the hatch's edge: a lane line, not a street
+        out = within_carriageway([axis, edge], car, 1.5)
+        self.assertEqual(len(out), 1)
+        self.assertAlmostEqual(out[0].length, 99.0, delta=1.5, msg="on to the end of the carriageway")
+
+    def test_which_paving_is_which(self):
+        from shapely.geometry import box, mapping
+        from acad.roads.network import RoadNet
+        from acad.stages.earthworks import paved_areas
+        x = np.arange(0, 101, 5.0)
+        new = {"xy": np.column_stack([x, 0 * x]), "s": x, "z": 100 + 0 * x, "half_w": np.full(len(x), 3.0)}
+        old = {"xy": np.column_stack([x, 30 + 0 * x]), "s": x, "z": 100 + 0 * x, "half_w": np.full(len(x), 4.0)}
+        pr = RoadNet([new], None, 0.02)
+        net = RoadNet([new, old], None, 0.02)
+        car = box(0, -3, 100, 3).union(box(40, 3, 50, 30)).union(box(0, 26, 100, 34)).union(box(200, 0, 210, 10))
+        roads = {"carriageway_area": mapping(car), "existing_area": mapping(box(0, 26, 100, 34)), "sidewalk_area": None}
+        a = paved_areas(roads, pr, net, box(-10, -50, 300, 100), 5.0, 25.0)
+        self.assertAlmostEqual(a["existing"].area, 800.0, delta=1.0, msg="the hatch over an old street leaves it old")
+        self.assertAlmostEqual(a["carriageway"].area, 600.0 + 10 * 1 + 10 * 22, delta=5.0,
+                               msg="the street and the apron joining the two")
+        self.assertAlmostEqual(a["loose"].area, 100.0, delta=1.0, msg="a hatch joining nothing stays 2D")
+
 
 class Standards(unittest.TestCase):
     def test_design_speed_by_terrain(self):

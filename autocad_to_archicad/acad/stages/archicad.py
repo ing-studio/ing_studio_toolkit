@@ -4,7 +4,8 @@ Contents (plan coordinates = the drawing's, in metres; heights = altitude - z re
 zero altitude):
   Site - Terrain              ONE mesh: the terrain made to fit the streets (earthworks stage)
   Site - Roads existing       street surfaces: grey solids (surface 'Site - Asphalt') on the existing streets' profile
-  Site - Roads proposed       the new carriageways, crowned, on their designed profile (grey solids)
+  Site - Roads proposed       the new carriageways, crowned, on their designed profile, with their aprons and
+                              driveways (grey solids)
   Site - Sidewalks proposed   sidewalks, a kerb height above the carriageway (light grey solids)
   Site - Road centre lines    centre lines of all streets (plan)
   Site - Retaining walls      the walls the streets need (Morph solids)
@@ -27,8 +28,8 @@ from pathlib import Path
 
 import numpy as np
 from scipy.spatial import cKDTree
-from shapely import contains_xy, segmentize
-from shapely.geometry import LineString, box, shape
+from shapely import contains_xy, segmentize, set_precision
+from shapely.geometry import LineString, Point, box, shape
 from shapely.ops import unary_union
 
 from ..archicad import elements as el
@@ -38,7 +39,7 @@ from ..archicad.session import connect_project, forget_project, project_is_open
 from ..config import settings
 from ..geometry.crs import LonLatUTM, Rigid2D
 from ..geometry.raster import nearest_fill, read_raster, sample_raster
-from ..geometry.bodies import prism, surface_body
+from ..geometry.bodies import GRID_OFFSET, prism, surface_body
 from ..geometry.terrain_mesh import adaptive_points
 from ..roads.geometry import as_polygons, rings_to_polygons
 from ..site import load_site
@@ -55,6 +56,33 @@ def tiles(poly, size):
     for x in np.arange(x0, x1, size):
         for y in np.arange(y0, y1, size):
             out += [q for q in as_polygons(poly.intersection(box(x, y, x + size, y + size))) if q.area > 0.5]
+    return out
+
+
+def pinches(poly):
+    """Points where a polygon's outline touches itself (a hole touching the edge, a bow tie): nodes of its boundary
+    where more than two edges meet."""
+    from collections import Counter
+    noded = unary_union(poly.boundary)
+    ends = Counter()
+    for line in getattr(noded, "geoms", [noded]):
+        c = line.coords
+        ends[tuple(np.round(c[0], 4))] += 1
+        ends[tuple(np.round(c[-1], 4))] += 1
+    return [p for p, k in ends.items() if k > 2]
+
+
+def solid_parts(poly, grid=0.01):
+    """A polygon made fit for a solid body: vertices on a 1 cm grid (no slivers between vertices mm apart), and no
+    point where its outline touches itself (not a closed body): a 3 cm disc is filled in there."""
+    out = []
+    for p in as_polygons(set_precision(poly, grid)):
+        touch = pinches(p)
+        if touch:
+            p = set_precision(unary_union([p] + [Point(q).buffer(3 * grid, quad_segs=2) for q in touch]), grid)
+        # the coordinates stay on the grid, but the grid is not kept with the polygon: later cuts (the body's cells)
+        # would snap to it too
+        out += [set_precision(q, 0.0) for q in as_polygons(p) if q.area >= 0.5]
     return out
 
 
@@ -269,8 +297,8 @@ def site_geometry(job, ter, ew):
                     continue
                 mesh_lines += clip_lines(with_z(open_rings(core, step), under[k]), inner)
                 x0, y0, x1, y1 = core.bounds
-                gx, gy = np.meshgrid(np.arange(math.floor(x0 / cell) * cell, x1 + cell, cell),
-                                     np.arange(math.floor(y0 / cell) * cell, y1 + cell, cell))
+                gx, gy = np.meshgrid(np.arange(math.floor(x0 / cell) * cell + GRID_OFFSET, x1 + cell, cell),
+                                     np.arange(math.floor(y0 / cell) * cell + GRID_OFFSET, y1 + cell, cell))
                 m = contains_xy(core.buffer(-0.3), gx, gy)
                 if m.any():
                     q = np.column_stack([gx[m], gy[m]])
@@ -384,7 +412,7 @@ def run(job, force=False):
             ("sidewalks", "sidewalks", "layer_sidewalks", "sidewalks", "sidewalks")):
         items = []
         for poly, t, _ in pieces.get(pkind, []):
-            for piece in tiles(poly, 150.0):  # each body stays light
+            for piece in (q for tile in tiles(poly, 150.0) for q in solid_parts(tile)):  # each body stays light
                 if piece.area < 2.0:
                     continue
                 v, f = surface_body(piece, lambda xy, k=pkind: top_at[k](xy) - z_ref, t, cell)
@@ -505,7 +533,7 @@ def run(job, force=False):
     ok(f"archicad: saved {job.output_pln}")
     if sw.FAILED:
         save_json(job.w("archicad_refused.json"), sw.FAILED)
-        warn(f"archicad: {len(sw.FAILED)} drawing elements were refused by Archicad (details: "
+        warn(f"archicad: {len(sw.FAILED)} elements were refused by Archicad ({", ".join(sorted({f.get('label', '?') for f in sw.FAILED}))}; details: "
              f"{job.w('archicad_refused.json')})")
     result.update({"saved": True, "created_counts": counts, "landed": landed, "terrain_top": terrain_bb,
                    "refused": len(sw.FAILED),

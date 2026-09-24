@@ -14,6 +14,10 @@ from shapely.geometry.polygon import orient
 from shapely.strtree import STRtree
 
 
+GRID_OFFSET = 0.005  # the cell grid is shifted off the round coordinates the outlines are snapped to (1 cm): no cell
+# line runs through an outline vertex, so no sliver of a cell is thinner than 5 mm there
+
+
 class _Verts:
     def __init__(self, nd=4):
         self.index, self.xyz, self.nd = {}, [], nd
@@ -47,15 +51,15 @@ def prism(poly, z0, z1):
 def _triangles(poly, cell):
     """Triangles covering the polygon, with vertices on a `cell` grid inside it (so a height function is followed)."""
     x0, y0, x1, y1 = poly.bounds
-    xs = np.arange(math.floor(x0 / cell) * cell, x1 + cell, cell)
-    ys = np.arange(math.floor(y0 / cell) * cell, y1 + cell, cell)
+    xs = np.arange(math.floor(x0 / cell) * cell - cell + GRID_OFFSET, x1 + cell, cell)
+    ys = np.arange(math.floor(y0 / cell) * cell - cell + GRID_OFFSET, y1 + cell, cell)
     cells = [box(x, y, x + cell, y + cell) for x in xs[:-1] for y in ys[:-1]]
     hit = STRtree(cells).query(poly, predicate="intersects")
     out = []
     for piece in intersection(poly, [cells[i] for i in hit]):
         for part in getattr(piece, "geoms", [piece]):
-            if part.geom_type == "Polygon" and part.area > 1e-6:
-                out += [orient(t, 1.0) for t in constrained_delaunay_triangles(part).geoms if t.area > 1e-8]
+            if part.geom_type == "Polygon" and part.area > 0.0:  # every piece: a gap would open the body
+                out += [orient(t, 1.0) for t in constrained_delaunay_triangles(part).geoms if t.area > 1e-12]
     return out
 
 
@@ -64,7 +68,7 @@ def surface_body(poly, zfun, depth, cell=2.0):
     tris = _triangles(poly, cell)
     if not tris:
         return [], []
-    key = lambda x, y: (round(float(x), 3), round(float(y), 3))
+    key = lambda x, y: (round(float(x), 4), round(float(y), 4))
     index, xy = {}, []
     tri_ids = []
     for t in tris:

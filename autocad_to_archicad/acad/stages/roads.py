@@ -1,7 +1,8 @@
 """Stage roads: the existing streets (OpenStreetMap, fitted to the drawing's kerbs) and the proposed streets (from
 the drawing, profile designed to the street rules). Every street surface stops at the buildings (the buildings stage's
 footprints): a street never runs into a building. The new buildings' fire access (a street within reach) is checked
-here. Result: roads.json (centre lines with stations, heights, widths; carriageway and sidewalk areas; the rule
+here. Result: roads.json (centre lines with stations, heights, widths; the existing streets' area and the drawing's
+carriageway and sidewalk areas, which may overlap: the earthworks stage decides which paving is where; the rule
 checks)."""
 import math
 
@@ -83,15 +84,16 @@ def run(job, force=False):
     blds = unary_union([shape(it["polygon"]) for k in ("existing", "proposed") for it in bj[k]]) \
         if bj["existing"] or bj["proposed"] else None
 
-    ex_edges, ex_area = [], None
+    ex_edges, ex_area, net = [], None, None
     if cfg["roads"]["existing"]["enabled"]:
         ways = [w for w in load_json(job.w("osm.json"))["ways"] if "highway" in w["tags"]]
         kerbs = polylines(on_layers(site, roles["kerbs"]))
-        ex_edges, ex_area = ex_mod.build(ways, lambda ll: g2u.inverse(tr.to_utm(ll)), kerbs, (z, gt), cfg, clip)
+        ex_edges, ex_area, net = ex_mod.build(ways, lambda ll: g2u.inverse(tr.to_utm(ll)), kerbs, (z, gt), cfg, clip)
         snapped = sum(1 for e in ex_edges if e["width_source"] == "kerbs")
         length = sum(float(e["s"][-1]) for e in ex_edges)
-        log(f"roads: existing: {len(ex_edges)} OSM street pieces, {length / 1000:.2f} km; {snapped} fitted to the "
-            f"drawing's kerbs ({len(kerbs):,} kerb lines), the others at their OSM / class width")
+        log(f"roads: existing: {len(ex_edges)} streets (OSM ways joined into continuous streets), {length / 1000:.2f} km, "
+            f"{net['junctions']} junctions joined; {snapped} fitted to the drawing's kerbs ({len(kerbs):,} kerb lines), "
+            "the others at their OSM / class width")
     existing = RoadNet(ex_edges, ex_area, cf, float(cfg["roads"]["profile"]["junction_blend_m"]))
 
     pr_edges, car, sw, summary, w = [], None, None, {}, []
@@ -153,8 +155,6 @@ def run(job, force=False):
                     abs(t.get("mismatch_m", 0)) <= 0.1 for t in summary["tie_ins"]) else ""))
         else:
             warn(f"roads: no proposed streets found ({summary.get('note', '')})")
-    if car is not None and ex_area is not None:
-        ex_area = ex_area.difference(car.buffer(0.2))
     # no street surface inside a building
     if blds is not None and not blds.is_empty:
         cut = {}
@@ -194,4 +194,5 @@ def run(job, force=False):
                     "existing_area": mapping(ex_area) if ex_area is not None and not ex_area.is_empty else None,
                     "carriageway_area": mapping(car) if car is not None and not car.is_empty else None,
                     "sidewalk_area": mapping(sw) if sw is not None and not sw.is_empty else None,
-                    "summary": {k: v for k, v in summary.items()}, "warnings": warnings})
+                    "summary": dict(summary, existing_network={"streets": len(ex_edges), "junctions": net["junctions"]}
+                                    if net else summary), "warnings": warnings})

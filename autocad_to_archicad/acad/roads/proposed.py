@@ -1,8 +1,10 @@
 """Proposed streets: carriageway, axes and sidewalks from the drawing; the longitudinal profile designed to the rules.
 
 Geometry: the carriageway area comes from its hatches; the axis lines drawn by the architect become the centre lines
-(ends within snap_m of another axis are joined to it, so junctions and the roundabout form one network); without axis
-lines the centre lines are computed from the area (skeleton). Half widths are measured from the area.
+(ends within snap_m of another axis are joined to it, so junctions and the roundabout form one network), but only
+where they run inside the carriageway, at least min_half_width_m from its edge: an axis drawn along an existing
+street (outside the new carriageway) or along the hatch's edge is not a new street there. Without axis lines the
+centre lines are computed from the area (skeleton). Half widths are measured from the area.
 
 Profile: ONE linear programme for the whole network (HiGHS). Unknowns: the axis height at every station; a junction
 is one shared unknown, so streets meet at one height. Rules:
@@ -23,7 +25,8 @@ from scipy.optimize import linprog
 from shapely.geometry import LineString, MultiLineString, Point
 from shapely.ops import linemerge, nearest_points, unary_union
 
-from shapely import contains_xy
+from shapely import contains_xy, distance, points
+from shapely.ops import substring
 
 from ..geometry.raster import sample_raster
 from ..site import on_layers, polylines
@@ -58,8 +61,55 @@ def axis_network(lines, area, snap):
         extended.append(LineString(coords))
     noded = unary_union(extended)
     merged = linemerge(noded)
-    out = list(merged.geoms) if isinstance(merged, MultiLineString) else [merged]
-    return [g for g in out if g.length > 2.0]
+    out = [g for g in (list(merged.geoms) if isinstance(merged, MultiLineString) else [merged]) if g.length > 2.0]
+    # an axis drawn twice (two lines on top of each other) is one street
+    kept = []
+    for g in sorted(out, key=lambda g: -g.length):
+        if not any(g.hausdorff_distance(h) < 0.5 for h in kept):
+            kept.append(g)
+    return kept
+
+
+def within_carriageway(lines, area, min_hw, min_len=5.0, gap=3.0):
+    """The stretches of centre lines that run inside the carriageway, at least min_hw from its edge (gaps up to `gap`
+    bridged, so a kerb nose does not split a street), each carried on to where it leaves the carriageway (its end);
+    stretches shorter than min_len are dropped."""
+    out = []
+    edge = area.boundary
+    for g in lines:
+        n = max(2, int(math.ceil(g.length)) + 1)
+        t = np.linspace(0.0, g.length, n)
+        xy = np.array([g.interpolate(v).coords[0] for v in t])
+        inside = contains_xy(area, xy[:, 0], xy[:, 1])
+        ok = inside & (distance(points(xy), edge) >= min_hw)
+        if ok.all():
+            out.append(g)
+            continue
+        # bridge short gaps between good stretches
+        idx = np.nonzero(ok)[0]
+        for a, b in zip(idx[:-1], idx[1:]):
+            if b - a > 1 and t[b] - t[a] <= gap:
+                ok[a:b] = True
+        # a stretch goes on to where the axis leaves the carriageway (within min_hw + 0.5 m): its end is not cut short
+        good = ok.copy()
+        for i in np.nonzero(good)[0]:
+            for step in (-1, 1):
+                j = i + step
+                while 0 <= j < n and inside[j] and not good[j] and abs(t[j] - t[i]) <= min_hw + 0.5:
+                    j += step
+                if (j < 0 or j >= n or not inside[j]) and abs(t[j - step] - t[i]) <= min_hw + 0.5:
+                    lo, hi = sorted((i, j - step))
+                    ok[lo:hi + 1] = True
+        start = None
+        for i in range(n + 1):
+            if i < n and ok[i] and start is None:
+                start = i
+            if (i == n or not ok[i]) and start is not None:
+                a, b = t[start], t[i - 1]
+                if b - a >= min_len:
+                    out.append(g if (start == 0 and i == n) else substring(g, a, b))
+                start = None
+    return out
 
 
 def graph_of(lines, tol=0.5):
@@ -264,6 +314,13 @@ def build(site, roles, cfg, terrain, existing, clip_area, buildings=None):
     std["terrain_source"], std["ground_slope_permille"] = terrain_src, round(slope, 1)
     axes = polylines(on_layers(site, roles["axes"]))
     lines = axis_network(axes, car, float(pr["snap_m"])) if axes else []
+    if lines:
+        drawn = sum(g.length for g in lines)
+        lines = within_carriageway(lines, car, float(pr["min_half_width_m"]))
+        off = drawn - sum(g.length for g in lines)
+        if off > 1.0:
+            warnings.append(f"{off:,.0f} m of the drawing's axis lines run outside the new carriageway or along its edge "
+                            "(axes of existing streets, lane lines): not taken as new streets there")
     source = "axis lines"
     if not lines:
         v, chains = skeleton(car, 1.0, float(pr["prune_m"]))

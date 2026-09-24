@@ -85,11 +85,14 @@ def fig_site(job, ter, roads, ew):
     ax.imshow(np.where(np.isfinite(z1), shade, np.nan), extent=ext, cmap="gray")
     im = ax.imshow(z1, extent=ext, cmap="terrain", alpha=0.45)
     plt.colorbar(im, ax=ax, shrink=0.6, label="altitude m")
-    for key, col in (("existing_area", "#555555"), ("carriageway_area", "#d62728"), ("sidewalk_area", "#ff7f0e")):
-        if roads.get(key):
-            g = shape(roads[key])
+    # the paving as built in 3D (earthworks), and the drawing's paving left in 2D
+    paved = ew.get("paved") or {}
+    for key, col, alpha in (("existing", "#555555", 0.45), ("carriageway", "#d62728", 0.45),
+                            ("sidewalks", "#ff7f0e", 0.45), ("loose", "#2e7d32", 0.3)):
+        if paved.get(key):
+            g = shape(paved[key])
             for p in getattr(g, "geoms", [g]):
-                ax.fill(*p.exterior.xy, color=col, alpha=0.45, lw=0)
+                ax.fill(*p.exterior.xy, color=col, alpha=alpha, lw=0)
     for e in roads["proposed"]:
         xy = np.array(e["xy"])
         ax.plot(xy[:, 0], xy[:, 1], color="#8b0000", lw=0.9)
@@ -105,8 +108,9 @@ def fig_site(job, ter, roads, ew):
         if len(w):
             ax.plot(w[:, 0], w[:, 1], ".", color="#e6b800", ms=0.6)
     ax.set_aspect("equal")
-    ax.set_title("site model: existing streets (grey), new carriageways (red), sidewalks (orange), retaining walls "
-                 "(yellow), street ends tied in (green) / off by > 0.1 m (red)", fontsize=10)
+    ax.set_title("site model: existing streets (grey), new carriageways with their aprons and accesses (red), sidewalks "
+                 "(orange), the drawing's paving left in 2D (green), retaining walls (yellow), street ends tied in "
+                 "(green dots) / off by > 0.1 m (red dots)", fontsize=10)
     out.append(_png(fig))
     fig, ax = plt.subplots(figsize=(15, 9))
     im = ax.imshow(np.where(np.abs(np.nan_to_num(dz)) > 0.05, dz, np.nan), extent=ext, cmap="RdBu",
@@ -116,6 +120,51 @@ def fig_site(job, ter, roads, ew):
     ax.set_aspect("equal")
     ax.set_title(f"cut and fill: cut {ew['cut_m3']:,} m3, fill {ew['fill_m3']:,} m3", fontsize=10)
     out.append(_png(fig))
+    return out
+
+
+def fig_3d(job, roads, views=((35, -70), (35, 110))):
+    """Oblique 3D views of the finished surface around the new streets: carriageways (dark), sidewalks (light),
+    buildings' footprints (beige), the terrain (green): the paving as one connected surface."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LightSource
+    z1, gt, _ = read_raster(job.w("terrain_design.tif"))
+    S = np.load(job.w("surfaces.npz"))
+    res = gt[1]
+    xy = np.vstack([np.asarray(e["xy"]) for e in roads["proposed"]]) if roads["proposed"] else None
+    if xy is None:
+        return []
+    x0, y0 = xy.min(axis=0) - 40.0
+    x1, y1 = xy.max(axis=0) + 40.0
+    c0, c1 = max(0, int((x0 - gt[0]) / res)), min(z1.shape[1], int((x1 - gt[0]) / res))
+    r0, r1 = max(0, int((gt[3] - y1) / res)), min(z1.shape[0], int((gt[3] - y0) / res))
+    step = max(1, int(np.ceil(np.sqrt((r1 - r0) * (c1 - c0) / 250_000))))
+    sl = (slice(r0, r1, step), slice(c0, c1, step))
+    Z = z1[sl].copy()
+    for key, m in (("top_ex", "EX"), ("top_car", "CAR"), ("top_sw", "SW")):
+        M = S[m][sl]
+        Z[M] = S[key][sl][M]
+    X, Y = np.meshgrid(gt[0] + (np.arange(c0, c1, step) + 0.5) * res, gt[3] - (np.arange(r0, r1, step) + 0.5) * res)
+    col = np.empty(Z.shape + (3,))
+    col[:] = (0.55, 0.68, 0.42)
+    for m, c in (("EX", (0.33, 0.33, 0.35)), ("CAR", (0.28, 0.28, 0.31)), ("SW", (0.74, 0.74, 0.72)),
+                 ("BLD", (0.86, 0.80, 0.70))):
+        col[S[m][sl]] = c
+    shade = LightSource(azdeg=315, altdeg=40).hillshade(np.nan_to_num(Z, nan=np.nanmin(Z)), dx=res * step,
+                                                         dy=res * step)
+    rgb = np.clip(col * (0.45 + 0.75 * shade[..., None]), 0, 1)
+    out = []
+    for elev, azim in views:
+        fig = plt.figure(figsize=(15, 9))
+        ax = fig.add_subplot(111, projection="3d")
+        ax.plot_surface(X, Y, np.nan_to_num(Z, nan=np.nanmin(Z)), facecolors=rgb, rstride=1, cstride=1, linewidth=0,
+                        antialiased=False, shade=False)
+        ax.view_init(elev=elev, azim=azim)
+        ax.set_box_aspect((x1 - x0, y1 - y0, float(np.nanmax(Z) - np.nanmin(Z))))
+        ax.set_axis_off()
+        ax.set_title("3D: carriageways (dark), sidewalks (light), building footprints (beige), terrain (green)",
+                     fontsize=10)
+        out.append(_png(fig))
     return out
 
 
@@ -222,15 +271,23 @@ def run(job, force=False):
                            f"in {rd['unit_m']:g} m ({html.escape(ue['rule'])}); the map match confirmed it.")
     walls = ew["retaining_walls"]
     if walls.get("length_m"):
+        why = [(k, lbl) for k, lbl in (("at_reach_m", "side slopes not meeting the ground"),
+                                        ("at_existing_streets_m", "at existing streets"),
+                                        ("between_streets_m", "between new street stretches too close for their slopes"),
+                                        ("at_bridges_m", "at bridge abutments"),
+                                        ("at_level_steps_m", "between streets side by side on different levels"))
+               if walls.get(k)]
         warnings.append(f"Retaining walls needed along about {walls['length_m']:,.0f} m (yellow on the site map; "
-                        f"{walls.get('modelled_m', 0):,.0f} m modelled on 'Site - Retaining walls').")
+                        f"{walls.get('modelled_m', 0):,.0f} m modelled on 'Site - Retaining walls'): "
+                        + ", ".join(f"{lbl} {walls[k]:,} m" for k, lbl in why) + ".")
     for b in ew.get("bridges", []):
         warnings.append(f"{html.escape(b['street'])} {b['from_m']:.0f}–{b['to_m']:.0f} m would stand up to "
                         f"{b['max_height_m']:.0f} m above the ground: a bridge / viaduct (the ground is left as it is "
                         "under it).")
     if ew.get("loose_paved_m2"):
-        warnings.append(f"{ew['loose_paved_m2']:,} m² of paved area has no street axis through it (ramps, parking): "
-                        "left on the existing ground.")
+        warnings.append(f"{ew['loose_paved_m2']:,} m² of the drawing's paving joins no street, lies more than "
+                        f"{prof['paving_reach_m']} m beyond one or on a slope it cannot follow (plazas, parking, "
+                        "embankments; green on the site map): drawn in 2D on the existing ground only.")
     alt = ter.get("altitude", {})
     if alt.get("method") == "world_terrain":
         warnings.append(f"Altitudes come from the open world terrain model (±{alt.get('mad_m')} m spread): set "
@@ -290,6 +347,7 @@ def run(job, force=False):
 
     # ---- site
     parts.append("<h2>Site model</h2>" + "".join(_img(s, "site map") for s in fig_site(job, ter, roads, ew)))
+    parts.append("<h3>The streets in 3D</h3>" + "".join(_img(s, "3D view") for s in fig_3d(job, roads)))
     parts.append(_table([[k.replace("_", " "), f"{v:,}" if isinstance(v, (int, float)) else v] for k, v in (
         ("cut m³", ew["cut_m3"]), ("fill m³", ew["fill_m3"]), ("balance m³ (fill − cut)", ew["balance_m3"]),
         ("deepest cut m", ew["max_cut_m"]), ("highest fill m", ew["max_fill_m"]),
@@ -299,12 +357,25 @@ def run(job, force=False):
         ("bridges / viaducts m", sum(b["length_m"] for b in ew.get("bridges", []))),
         ("ground left as it is under buildings m²", ew.get("kept_under_buildings_m2", 0)),
         ("street surface cut back at buildings m²", round(sum((summ.get("cut_at_buildings_m2") or {}).values()))),
-        ("ground eased onto existing streets' edges m³ (not counted above)", ew.get("existing_edges_eased_m3", 0)))],
+        ("ground eased onto existing streets' edges m³ (not counted above)", ew.get("existing_edges_eased_m3", 0)),
+        ("ground between streets side by side on different levels m²", ew.get("level_steps_m2", 0)),
+        ("the drawing's paving left in 2D m²", ew.get("loose_paved_m2", 0)))],
         ["earthworks", "value"], num=(1,)))
-    parts.append(f"<p>Street surfaces are continuous: a point takes the height of the centre line nearest to it, "
-                 f"interpolated along that line; where streets meet their surfaces blend over "
-                 f"{prof['junction_blend_m']} m (streets side by side on clearly different levels keep a step), and "
-                 f"every surface is smoothed over {prof['surface_smoothing_m']} m. Layering: each paved surface is a "
+    exn = roads["summary"].get("existing_network") or {}
+    parts.append("<p>The paving is one network. Existing streets: OpenStreetMap ways joined into continuous streets"
+                 + (f" ({exn['streets']} streets, {exn['junctions']} junctions)" if exn else "")
+                 + f", fitted to the drawing's kerbs; at junctions they meet on one point and height, with round ends "
+                 f"and kerb returns of {cfg['roads']['existing']['kerb_return_m']} m. New streets: the drawing's axes "
+                 f"where they run inside its carriageway; the drawing's carriageway joining a street within "
+                 f"{prof['paving_reach_m']} m of its edge is paving too (junction aprons, the roundabout, lay-bys), "
+                 f"following the ground within {prof['paving_max_grade_permille']} per mille; an apron reaching a "
+                 f"building is its access, running from the street towards its ground floor. All carriageways, old and "
+                 f"new, share one surface: a point takes the heights of the centre lines near it, interpolated along "
+                 f"them, weighted by its distance beyond each street's edge, so streets meet without steps and paving "
+                 f"between two streets slopes evenly; along its axes a new street keeps its designed surface. Where "
+                 f"streets side by side lie on levels the paving cannot join within "
+                 f"{prof['paving_max_slope_permille']} per mille, the ground between them is sloped or walled. Every "
+                 f"surface is smoothed over {prof['surface_smoothing_m']} m. Layering: each paved surface is a "
                  f"body lying on the terrain, which runs {prof['pavement_m']} m below a carriageway and "
                  f"{prof['kerb_m'] + prof['pavement_m']:.2f} m below a sidewalk (so it passes under the kerb without a "
                  f"step); around the paving the ground meets its edge flush: side slopes "
