@@ -40,7 +40,7 @@ import numpy as np
 from scipy import ndimage
 from scipy.spatial import cKDTree
 from shapely import STRtree, contains_xy, points
-from shapely.geometry import LineString, Point, mapping, shape
+from shapely.geometry import LineString, Point, Polygon, mapping, shape
 from shapely.ops import unary_union
 
 from ..config import settings
@@ -48,6 +48,12 @@ from ..geometry.raster import read_raster, sample_raster, write_raster
 from ..roads.geometry import as_polygons, strip_polygon
 from ..roads.network import RoadNet
 from ..util import file_signature, load_json, log, save_json, skip, warn
+
+SLIVER_M = 0.8        # paving narrower than this (a sliver between two cuts) is not built
+MIN_PIECE_M2 = 5.0    # nor a paved piece smaller than this
+HOLE_M2 = 10.0        # holes in the paving smaller than this are paved over (buildings are larger: min_area_m2)
+MIN_STEP_M2 = 25.0    # a level step in the paving smaller than this is a steep spot of a junction, not two levels
+MIN_WALL_M = 4.0      # a retaining wall run shorter than this is a raster speck, not a wall
 
 
 def mask_of(geom, X, Y):
@@ -73,6 +79,28 @@ def mask_polygon(mask, gt):
 def _clean(geom, min_area=1.0):
     parts = [p for p in as_polygons(geom.buffer(0)) if p.area >= min_area] if geom is not None else []
     return unary_union(parts) if parts else None
+
+
+def smooth_region(mask, gt):
+    """The cells of a mask as a polygon without the cells' staircase or a ragged threshold edge: closed over 1 m (bits
+    a cell or two apart are one region), its outline simplified within 0.5 m (a region cut from the paving leaves a
+    clean edge, not a saw)."""
+    g = mask_polygon(mask, gt)
+    return g.buffer(1.0, join_style=1).buffer(-1.0, join_style=1).simplify(0.5)
+
+
+def tidy(geom, sliver_m=SLIVER_M, min_area=MIN_PIECE_M2):
+    """Paving fit to build: slivers narrower than sliver_m (left by cuts between areas) and pieces smaller than
+    min_area dropped; small holes (a cell or two left between areas, not a building) filled."""
+    if geom is None:
+        return None
+    r = sliver_m / 2.0
+    g = geom.buffer(-r, join_style=2, mitre_limit=2.0).buffer(r, join_style=2, mitre_limit=2.0)
+    parts = []
+    for p in as_polygons(g.intersection(geom)):
+        if p.area >= min_area:
+            parts.append(Polygon(p.exterior, [h for h in p.interiors if Polygon(h).area >= HOLE_M2]))
+    return _clean(unary_union(parts)) if parts else None
 
 
 def strips(edges, extra):
@@ -255,6 +283,16 @@ def side_slopes(shape_, rr, cc, seg, top, res, reach, fill_hv, cut_hv):
     return lo, hi, near_lo, near_hi, near_d
 
 
+def smooth_change(dz, M, dist, reach, sigma_px=2.0, exact_m=1.0):
+    """The change of the ground dz within M smoothed (normalised Gaussian over M), easing in from the exact value at
+    the paving's edge to fully smoothed exact_m away from it."""
+    change = np.where(M, np.nan_to_num(dz), 0.0)
+    wgt = ndimage.gaussian_filter(M.astype(np.float64), sigma_px)
+    sm = ndimage.gaussian_filter(change, sigma_px) / np.maximum(wgt, 1e-6)
+    fade = np.clip(np.nan_to_num(dist, nan=reach) / exact_m, 0.0, 1.0)
+    return (1.0 - fade) * change + fade * sm
+
+
 def cliffs(z, z_before, area, jump):
     """Cells where the new surface jumps by more than `jump` to a neighbour, and by clearly more than the ground did
     before (a retaining wall the redesign needs), within `area`."""
@@ -309,19 +347,36 @@ def wall_segments(wall, X, Y, z1, res, seg_m, footing):
                 cur.append(i)
         runs.append(cur)
         for run in runs:
-            for a in range(0, len(run) - 1, per):
-                piece = run[a:a + per + 1]
-                if len(piece) < 2:
+            if len(run) < 2 or len(run) * res < MIN_WALL_M:  # a speck of cliff cells, not a wall
+                continue
+            # the run's path eased over about 2 m: the wall follows the cliff, not the cells' staircase
+            path = pts[run]
+            k_ = min(len(run), max(1, int(round(2.0 / res))) | 1)
+            if k_ > 1:
+                pad = np.pad(path, ((k_ // 2, k_ // 2), (0, 0)), mode="edge")
+                path = np.column_stack([np.convolve(pad[:, j], np.ones(k_) / k_, mode="valid") for j in (0, 1)])
+                path[0], path[-1] = pts[run[0]], pts[run[-1]]
+            ends = list(range(0, len(run) - 1, per)) + [len(run) - 1]
+            ps = []
+            for a, b in zip(ends[:-1], ends[1:]):
+                piece = run[a:b + 1]
+                if np.hypot(*(path[b] - path[a])) < 0.5 * res:
                     continue
-                p0, p1 = pts[piece[0]], pts[piece[-1]]
-                if np.hypot(*(p1 - p0)) < 0.5 * res:
+                ps.append((path[a], path[b], float(np.max(zmax[rr[piece], cc[piece]])),
+                           float(np.min(zmin[rr[piece], cc[piece]]))))
+            if not ps:
+                continue
+            # neighbouring pieces' tops and bottoms eased (never below the ground they hold): no saw along the wall
+            top = np.array([p[2] for p in ps])
+            bot = np.array([p[3] for p in ps])
+            if len(ps) > 2:
+                top = np.maximum(top, np.convolve(np.pad(top, 1, mode="edge"), np.ones(3) / 3, mode="valid"))
+                bot = np.minimum(bot, np.convolve(np.pad(bot, 1, mode="edge"), np.ones(3) / 3, mode="valid"))
+            for (p0, p1, _, _), t, b in zip(ps, top, bot):
+                if t - b < 0.3:
                     continue
-                top = float(np.max(zmax[rr[piece], cc[piece]]))
-                bottom = float(np.min(zmin[rr[piece], cc[piece]])) - footing
-                if top - bottom - footing < 0.3:
-                    continue
-                out.append({"xy": [p0.round(3).tolist(), p1.round(3).tolist()], "top": round(top, 2),
-                            "bottom": round(bottom, 2), "height_m": round(top - bottom - footing, 2)})
+                out.append({"xy": [p0.round(3).tolist(), p1.round(3).tolist()], "top": round(float(t), 2),
+                            "bottom": round(float(b) - footing, 2), "height_m": round(float(t - b), 2)})
     return out
 
 
@@ -425,7 +480,7 @@ def run(job, force=False):
         joined = np.isin(lab, np.unique(lab[AXES | EX]))
         drop = AP & ~(fits & joined)
         if drop.any():
-            gone = mask_polygon(drop, gt).buffer(0.3, join_style=2).buffer(-0.3, join_style=2).simplify(0.2)
+            gone = smooth_region(drop, gt)
             gone = gone.intersection(areas["carriageway"])
             areas["carriageway"] = _clean(areas["carriageway"].difference(gone))
             areas["loose"] = _clean(unary_union([a for a in (areas["loose"], gone) if a is not None]))
@@ -481,19 +536,35 @@ def run(job, force=False):
         gy, gx = np.gradient(np.where(M, top, np.nan), res)
         return M & ndimage.binary_dilation(np.nan_to_num(np.hypot(gx, gy)) > max_slope) & ~AXES
     BANK = steep(top_carr, CARR) | steep(top_sw, SW)
+    # a steep spot smaller than MIN_STEP_M2 (where streets of slightly different heights blend at a junction) is no
+    # second level: the paving stays whole there instead of getting a hole
+    lab, n = ndimage.label(BANK)
+    if n:
+        size = ndimage.sum(BANK, lab, np.arange(n + 1)) * res * res
+        BANK = np.isin(lab, np.nonzero(size >= MIN_STEP_M2)[0]) & BANK
     bank_top = np.where(CARR, top_carr, top_sw)
     if BANK.any():
-        gone = mask_polygon(BANK, gt).buffer(0.3, join_style=2).buffer(-0.3, join_style=2).simplify(0.2)
+        gone = smooth_region(BANK, gt)
         for k in ("existing", "carriageway", "sidewalks"):
             if areas[k] is not None:
                 areas[k] = _clean(areas[k].difference(gone))
-        was = CARR | SW
-        EX = mask_of(areas["existing"], X, Y) & ~BLD
-        CAR = mask_of(areas["carriageway"], X, Y) & ~BLD
-        SW = mask_of(areas["sidewalks"], X, Y) & ~BLD & ~CAR
-        EX &= ~(CAR | SW)
-        CARR = EX | CAR
-        BANK = was & ~(CARR | SW)
+    # the paving as it is built: no slivers, specks or pinholes left by the cuts above (they show as noise in 3D)
+    for k in ("existing", "carriageway", "sidewalks"):
+        areas[k] = tidy(areas[k])
+    was = CARR | SW
+    EX = mask_of(areas["existing"], X, Y) & ~BLD
+    CAR = mask_of(areas["carriageway"], X, Y) & ~BLD
+    SW = mask_of(areas["sidewalks"], X, Y) & ~BLD & ~CAR
+    EX &= ~(CAR | SW)
+    CARR = EX | CAR
+    BANK = was & ~(CARR | SW)
+    # a filled pinhole takes its surface from around it
+    for top, M in ((top_carr, CARR), (top_sw, SW)):
+        hole = M & ~np.isfinite(top)
+        if hole.any():
+            ok_ = np.isfinite(top)
+            idx = ndimage.distance_transform_edt(~ok_, return_distances=False, return_indices=True)
+            top[hole] = top[idx[0][hole], idx[1][hole]]
     surf = np.full(z0.shape, np.nan)  # the finished paved surface
     surf[CARR] = top_carr[CARR]
     surf[SW] = top_sw[SW]
@@ -508,7 +579,12 @@ def run(job, force=False):
     # (a closed gap that turns out to be a level step was never paving: it stays the natural ground)
     BETWEEN = BANK & ~GAP & ndimage.binary_closing(PAVED | BLD, structure=(xx ** 2 + yy ** 2) <= r_cells ** 2) & \
         np.isfinite(bank_top)
-    z1[BETWEEN] = bank_top[BETWEEN]
+    if ew.get("max_fill_m"):  # no bank higher than an embankment may be (under a viaduct the ground stays)
+        BETWEEN &= np.nan_to_num(bank_top - z0, nan=0.0) <= float(ew["max_fill_m"])
+    # the bank is the blend of two street levels, uneven where the blend gives up on one of them: smoothed (~1 m)
+    wgt = ndimage.gaussian_filter(BETWEEN.astype(np.float64), 2.0)
+    bank_sm = ndimage.gaussian_filter(np.where(BETWEEN, np.nan_to_num(bank_top), 0.0), 2.0) / np.maximum(wgt, 1e-6)
+    z1[BETWEEN] = bank_sm[BETWEEN]
 
     # ---- new streets: bridges, side slopes, walls
     PR = CAR | SW
@@ -536,13 +612,10 @@ def run(job, force=False):
         z1[both] = np.clip(z0[both], lo[both], hi[both])
         clash = D & ~both  # slopes of two street stretches overlap: the nearer one wins, a wall between them
         z1[clash] = np.clip(z0[clash], near_lo[clash], near_hi[clash])
-        # the nearest street cell jumps along a sloping street, which leaves small steps in the side slopes: smooth
-        # the change of the ground there (masked, ~1 m), exact at the street edge, so only real steps remain
-        change = np.where(D, np.nan_to_num(z1 - z0), 0.0)
-        wgt = ndimage.gaussian_filter(D.astype(np.float64), 2.0)
-        sm = ndimage.gaussian_filter(change, 2.0) / np.maximum(wgt, 1e-6)
-        fade = np.clip(np.nan_to_num(near_d, nan=reach) / 3.0, 0.0, 1.0)
-        z1[D] = z0[D] + ((1.0 - fade) * change + fade * sm)[D]
+        # the nearest street cell jumps along a sloping street, and the distance to a staircase of cells swings by
+        # half a cell along a slanting edge: both leave teeth in the side slopes. Smooth the change of the ground
+        # (masked, ~1 m) up to a metre from the edge, so only real steps remain
+        z1[D] = z0[D] + smooth_change(z1 - z0, D, near_d, reach)[D]
         # a retaining wall is needed where the slope has not met the ground at the end of its reach, where it
         # stops at an existing street with a step, and between street stretches whose slopes clash
         rim = D & (np.nan_to_num(near_d) > reach - 1.01 * res) & (np.abs(z1 - z0) > 0.3)  # one cell wide
@@ -580,6 +653,7 @@ def run(job, force=False):
         EB = ~PAVED & ~BETWEEN & ~BLD & valid & ~np.isfinite(near_d) & (dd <= ease) & np.isfinite(h)
         target = np.clip(z0, h - dd / fill_hv, h + dd / cut_hv)
         z1[EB] = (z0 + (1.0 - dd / ease) * (target - z0))[EB]
+        z1[EB] = z0[EB] + smooth_change(z1 - z0, EB, np.where(EB, dd, np.nan), ease)[EB]
 
     # ---- volumes (the regrading under and beside existing streets is kept apart: it is a surface fit, not works)
     dz = np.where(valid, z1 - z0, 0.0)

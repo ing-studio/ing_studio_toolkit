@@ -128,6 +128,8 @@ def main(argv=None):
             return 0
         if args.command == "addon":
             from .archicad import addon
+            from .archicad.client import use_version
+            use_version(load_config()["archicad"]["version"])
             if args.action == "status":
                 print(json.dumps(addon.status(), indent=2))
             else:

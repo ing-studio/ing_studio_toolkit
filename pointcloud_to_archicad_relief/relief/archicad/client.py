@@ -15,8 +15,35 @@ from pathlib import Path
 
 from ..util import error, log
 
-ARCHICAD_VERSION = 28
+SUPPORTED_VERSIONS = (28, 29)
+_version = [28]  # until use_version: the version every tool of the toolkit was written for
 PORTS = range(19723, 19745)
+
+
+def installed_versions():
+    """The supported Archicad versions installed on this machine."""
+    import glob
+    return [v for v in SUPPORTED_VERSIONS if glob.glob(rf"C:\Program Files\GRAPHISOFT\Archicad {v}*\Archicad.exe")]
+
+
+def use_version(setting):
+    """The Archicad version the pipeline works with: archicad.version (28 | 29), or auto = the newest installed;
+    28 when the tool's settings name none. Only that version's instances are used, and the PLN is saved in it."""
+    if setting in (None, "auto"):
+        found = installed_versions()
+        v = found[-1] if found else SUPPORTED_VERSIONS[-1]
+    else:
+        v = int(setting)
+        if v not in SUPPORTED_VERSIONS:
+            raise ArchicadError(f"archicad.version {setting!r}: supported are {', '.join(map(str, SUPPORTED_VERSIONS))}")
+    _version[0] = v
+    return v
+
+
+def version():
+    return _version[0]
+
+
 TAPIR_COMMANDS = ("GetProjectInfo", "SaveProject", "GetAddOnVersion", "GetStories", "CreateLayers",
                   "GetAttributesByType", "GetElementsByType", "GetDetailsOfElements", "SetDetailsOfElements",
                   "DeleteElements", "ChangeWindow", "CreateMeshes", "CreateSplines", "CreatePolylines", "CreateMorphs")
@@ -38,6 +65,9 @@ class DialogWatch:
     # windows Archicad draws itself: not '#32770', so they have no readable message and no buttons to answer, but
     # they do block startup completely. 'Project Recovery' appears after Archicad was killed instead of quitting.
     BLOCKING_TITLES = ("project recovery",)
+    # Archicad's own note that a file (a hotlinked module) carries data of add-ons not loaded here: its OK keeps that
+    # data, which is what the pipeline wants; it asks nothing else
+    KEEP_DATA_TITLES = ("missing add-ons",)
 
     def __init__(self, pid, report_dir=None):
         self.pid, self.report_dir = pid, report_dir
@@ -85,6 +115,14 @@ class DialogWatch:
                     continue
                 if cls(h) != "#32770":
                     title = text(h)
+                    if title.lower() in self.KEEP_DATA_TITLES:
+                        kids = []
+                        user32.EnumChildWindows(h, proto(lambda c, _: kids.append((c, cls(c), text(c))) or True), 0)
+                        ok_button = [c for c, k, t in kids if k == "Button" and t.replace("&", "") == "OK"]
+                        if ok_button:
+                            user32.SendMessageW(ok_button[0], 0x00F5, 0, 0)  # BM_CLICK: the data is kept
+                            log(f"archicad: '{title}' (a linked file's add-on data): confirmed, the data is kept")
+                        continue
                     if not any(k in title.lower() for k in self.BLOCKING_TITLES):
                         continue
                     self.message = (f"Archicad (pid {self.pid}) is waiting in its '{title}' window -> pipeline "

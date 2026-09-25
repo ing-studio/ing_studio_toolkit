@@ -2,16 +2,17 @@
 
 Several Archicad instances can run on one machine (each on its own port 19723-19744), including Teamwork projects
 of other users. The pipeline only talks to the instance that has the project it needs open (found by its path), or
-starts a separate Archicad 28 on that project. Other instances are never touched.
+starts a separate Archicad of the version in use (archicad.version) on that project. Other instances are never touched.
 """
 import os
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
 from ..util import app_env, detail, log, same_path, tool
 from .addon import is_tapir_registered, register_tapir
-from .client import ARCHICAD_VERSION, PORTS, Archicad, ArchicadError, DialogWatch, SafetyStop, archicad_running
+from .client import PORTS, Archicad, ArchicadError, DialogWatch, SafetyStop, archicad_running, use_version, version
 
 
 def _listening_ports(pid):
@@ -55,8 +56,16 @@ def scan_instances(host):
     return found
 
 
+def without_credentials(location):
+    """A project address fit for the log: a Teamwork address carries the user's sign-in token before its '@'."""
+    if "://" in location and "@" in location:
+        scheme, rest = location.split("://", 1)
+        return f"{scheme}://{rest.rsplit('@', 1)[1]}"
+    return location
+
+
 def _describe(inst):
-    project = inst["location"] or ("unknown project (no Tapir)" if not inst["tapir"] else "untitled")
+    project = without_credentials(inst["location"]) or ("unknown project (no Tapir)" if not inst["tapir"] else "untitled")
     return f"port {inst['port']}: Archicad {inst['version']}, {'Teamwork ' if inst['teamwork'] else ''}{project}"
 
 
@@ -93,8 +102,10 @@ def forget_project(pln):
 
 
 def connect_project(job, pln):
-    """Client (with safety stop) for the Archicad instance that has `pln` open; starts Archicad 28 on it if needed."""
+    """Client (with safety stop) for the Archicad instance that has `pln` open; starts Archicad (archicad.version) on
+    it if needed."""
     host = job.cfg["archicad"]["host"]
+    use_version(job.cfg["archicad"].get("version", 28))
     key = os.path.normcase(str(pln))
     cached = _connections.get(key)
     if cached:
@@ -114,8 +125,12 @@ def connect_project(job, pln):
     if inst is None and Path(str(pln) + ".lck").exists():
         inst = find_instance(host, pln) if project_is_open(host, pln) else None  # never open the same file twice
     if inst:
-        if inst["teamwork"] or inst["version"] != ARCHICAD_VERSION:
+        if inst["teamwork"]:
             raise ArchicadError(f"{pln} is open in an unsupported instance ({_describe(inst)})")
+        if int(inst["version"]) != version():
+            raise ArchicadError(f"{pln} is open in Archicad {inst['version']}, but the pipeline writes Archicad "
+                                f"{version()} files (archicad.version): close it there and run again - the PLN is "
+                                f"then rebuilt in Archicad {version()} (the old file is kept as a backup)")
         ac = Archicad(host, inst["port"], DialogWatch(_pid_of_port(inst["port"]), job.pln_dir))
         _check_tapir(ac)
         _connections[key] = ac
@@ -125,8 +140,9 @@ def connect_project(job, pln):
         register_tapir()
     exe = tool(job.cfg, "archicad_exe")
     log(f"archicad: starting {exe} on {pln} (answer library dialogs if asked; any other dialog stops the pipeline) ...")
-    # started in the project's folder: Archicad keeps its start folder open, which must not be the code folder
-    proc = subprocess.Popen([exe, str(pln)], close_fds=True, cwd=str(Path(pln).parent), env=app_env())
+    # started in the temp folder: Archicad keeps its start folder open and writes its browser's debug.log there, so
+    # it must be neither the code folder nor the results folder
+    proc = subprocess.Popen([exe, str(pln)], close_fds=True, cwd=tempfile.gettempdir(), env=app_env())
     watch = DialogWatch(proc.pid, job.pln_dir)
     ac = _wait_for_project(host, pln, proc, watch)
     time.sleep(10)  # add-on version warnings appear shortly after the project is loaded
@@ -152,7 +168,7 @@ def _wait_for_project(host, pln, proc, watch, seconds=3600):
         for port in PORTS:
             ac = Archicad(host, port, watch)
             try:
-                if int(ac.api("API.GetProductInfo", timeout=10).get("version")) != ARCHICAD_VERSION:
+                if int(ac.api("API.GetProductInfo", timeout=10).get("version")) != version():
                     continue  # other Archicad versions on this machine are never used
                 if ac.missing_tapir_commands(("GetProjectInfo",)):
                     continue

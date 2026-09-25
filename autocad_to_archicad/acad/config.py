@@ -107,9 +107,21 @@ def validate(cfg):
     if cfg["roads"]["proposed"]["class"] not in cfg["roads"]["standards"]:
         raise ConfigError(f"roads.proposed.class must be one of {', '.join(cfg['roads']['standards'])}")
     for key in ("layer_terrain", "layer_roads_existing", "layer_roads_proposed", "layer_sidewalks", "layer_road_lines",
-                "layer_walls", "layer_buildings_existing", "layer_buildings_proposed", "layer_underground", "layer_trees"):
+                "layer_walls", "layer_buildings_existing", "layer_buildings_proposed", "layer_underground", "layer_trees",
+                "layer_walls_existing", "layer_context_terrain", "layer_context_buildings", "layer_contours",
+                "layer_hotlinks"):
         if not cfg["archicad"][key].startswith(cfg["archicad"]["layer_prefix_site"]):
             raise ConfigError(f"archicad.{key} must start with archicad.layer_prefix_site")
+    v = cfg["archicad"]["version"]
+    if v != "auto" and v not in (28, 29):
+        raise ConfigError(f"archicad.version must be auto, 28 or 29, got {v!r}")
+    for h in cfg["archicad"]["hotlinks"]:
+        missing = [k for k in ("name", "file", "x", "y", "altitude", "rotation_deg") if k not in h]
+        if missing:
+            raise ConfigError(f"archicad.hotlinks item {h.get('name', '?')!r} lacks {', '.join(missing)}")
+    cols = cfg["archicad"]["contours"]["colours"]
+    if not (isinstance(cols, list) and cols and all(isinstance(c, list) and len(c) == 3 for c in cols)):
+        raise ConfigError("archicad.contours.colours must be a list of [red, green, blue] (0-255)")
     for key, sf in cfg["archicad"]["surfaces"].items():
         if key.startswith("_"):
             continue

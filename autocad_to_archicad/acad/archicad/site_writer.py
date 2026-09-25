@@ -10,7 +10,8 @@ from ..util import detail, warn
 from .client import ArchicadError
 from .elements import layer_indices
 
-OUR_TYPES = ("Mesh", "PolyLine", "Line", "Arc", "Circle", "Hatch", "Text", "Spline", "Hotspot", "Morph", "Object")
+OUR_TYPES = ("Mesh", "PolyLine", "Line", "Arc", "Circle", "Hatch", "Text", "Spline", "Hotspot", "Morph", "Object",
+             "Hotlink")
 NEEDED = ("CreateMeshes", "CreateMorphs", "CreateObjects", "CreateSurfaces", "GetAvailableLibraryParts",
           "CreatePolylines", "CreateArcs", "CreateCircles", "CreateHatches", "CreateTexts", "CreateHotspots",
           "CreateLayers", "GetAttributesByType", "GetPenTables", "GetFills", "SetDetailsOfElements",
@@ -114,6 +115,8 @@ def remove_on_layers(ac, prefixes):
                               "overwriteExisting": True})
     elems, seen = [], set()
     for t in OUR_TYPES:
+        if t == "Hotlink":
+            continue  # the API cannot delete a hotlink instance: the archicad stage moves it into place instead
         try:
             got = ac.tapir("GetElementsByType", {"elementType": t}).get("elements", [])
         except ArchicadError:

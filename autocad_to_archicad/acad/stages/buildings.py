@@ -50,6 +50,39 @@ def terrain_under(poly, z, gt, step=1.0):
     return float(np.median(v)), float(v.min()), float(v.max())
 
 
+def mean_width(poly):
+    """Mean width of a footprint: 2 x area / perimeter (a strip's width; half the side of a square)."""
+    return 2.0 * poly.area / max(poly.length, 1e-9)
+
+
+def wall_pieces(poly, z, gt, piece_m, parapet_m, embed_m):
+    """A drawn wall (a strip too thin to be a building: a parapet, a terrace or retaining wall) as pieces of about
+    piece_m along it, each standing from below the ground beside it to parapet_m above the higher ground beside it, so
+    the wall follows the ground instead of standing as one flat-topped block on a slope."""
+    from shapely.affinity import rotate
+    from shapely.geometry import box
+    rect = poly.minimum_rotated_rectangle
+    c = np.asarray(rect.exterior.coords)[:3]
+    d = c[1] - c[0] if np.hypot(*(c[1] - c[0])) >= np.hypot(*(c[2] - c[1])) else c[2] - c[1]
+    ang = math.degrees(math.atan2(d[1], d[0]))
+    o = poly.centroid
+    flat = rotate(poly, -ang, origin=o)  # the wall's long axis along x: cut across it
+    x0, y0, x1, y1 = flat.bounds
+    n = max(1, int(round((x1 - x0) / piece_m)))
+    out = []
+    for i in range(n):
+        cut = flat.intersection(box(x0 + (x1 - x0) * i / n, y0 - 1, x0 + (x1 - x0) * (i + 1) / n, y1 + 1))
+        for q in as_polygons(cut):
+            q = rotate(q, ang, origin=o)
+            if q.area < 0.05:
+                continue
+            t = terrain_under(q.buffer(1.0), z, gt, step=0.5)
+            if t is None:
+                continue
+            out.append({"polygon": mapping(q), "bottom_z": round(t[1] - embed_m, 2), "top_z": round(t[2] + parapet_m, 2)})
+    return out
+
+
 def osm_buildings(job):
     geo, osm = load_json(job.w("georef.json")), load_json(job.w("osm.json"))
     if not geo or not osm:
@@ -86,7 +119,7 @@ def run(job, force=False):
              f"{len(prev['trees'])} trees)")
         return
     result = {"inputs": wanted, "existing": [], "proposed": [], "demolished": [], "underground": [], "trees": [],
-              "checks": {}}
+              "walls": [], "checks": {}}
     if not b["enabled"]:
         save_json(out, result)
         skip("buildings: switched off (buildings.enabled)")
@@ -267,7 +300,7 @@ def run(job, force=False):
         new = {k: v for k, v in new.items() if v is not None and not v.is_empty}
         all_new = unary_union(list(new.values())) if new else None
         items, dropped = B.existing_buildings(ex_faces, osm_buildings(job), b)
-        trimmed = 0
+        trimmed = walls_drawn = 0
         for it in items:
             if outline is not None and not outline.buffer(20).intersects(it["poly"]):
                 continue
@@ -288,6 +321,12 @@ def run(job, force=False):
                     it["poly"] = max(rest, key=lambda q: q.area)
                     trimmed += 1
             it["height_m"] = round(it["height_m"], 2)
+            if mean_width(it["poly"]) < float(b["wall_max_width_m"]):
+                # too thin for a building: a wall drawn on a building layer (terrace parapets, retaining walls)
+                result["walls"] += wall_pieces(it["poly"], zf, gt, float(b["wall_piece_m"]),
+                                               float(b["wall_parapet_m"]), float(b["embed_m"]))
+                walls_drawn += 1
+                continue
             if place(it):
                 result["existing"].append(it)
         srcs = Counter(i["source"].split(" (")[0] if "usual" not in i["source"] else "usual for its OSM type"
@@ -295,6 +334,10 @@ def run(job, force=False):
         log(f"buildings: existing: {len(result['existing'])} buildings ({sum(i['poly'].area for i in result['existing']):,.0f} m2) "
             f"from {len(ex_faces)} outlines ({dropped} courtyards / gaps left out); heights: "
             + ", ".join(f"{k} {v}" for k, v in srcs.most_common()))
+        if walls_drawn:
+            log(f"buildings: {walls_drawn} outlines on the building layers are thinner than {b['wall_max_width_m']} m: "
+                f"walls (terrace parapets, retaining walls), modelled as {len(result['walls'])} pieces following the "
+                f"ground, {b['wall_parapet_m']} m above its higher side")
         if result["demolished"]:
             kinds = Counter(d["by"] for d in result["demolished"])
             warn(f"buildings: {len(result['demolished'])} existing buildings "

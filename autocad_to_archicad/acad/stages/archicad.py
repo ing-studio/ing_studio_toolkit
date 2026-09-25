@@ -11,7 +11,15 @@ zero altitude):
   Site - Retaining walls      the walls the streets need (Morph solids)
   Site - Buildings existing / proposed, Site - Underground levels   Morph solids
   Site - Trees                library objects (archicad.tree_objects), sized to the drawn crown
+  Site - Walls existing       walls drawn on the building layers (terrace parapets): pieces following the ground
+  Site - Context terrain / Context buildings   the surroundings (context stage): a mesh around the survey terrain,
+                              whose outline is its hole, and the OpenStreetMap buildings on it (Morph solids)
+  Site - Contours             the contour lines of the finished terrain, coloured by level (archicad.contours); the
+                              same lines are level lines of the terrain mesh, which shows them in 3D
+  Site - Hotlinked models     the team's models (archicad.hotlinks, e.g. the Cascade, the Matenadaran) as hotlinked
+                              modules; the drawing's and OpenStreetMap's stand-ins inside them are left out
   DWG - <layer>               the drawing itself: lines, arcs, circles, fills, texts on the drawing's layers
+The file is written in the Archicad version archicad.version (auto: the newest installed).
 Layering: the street bodies are exactly the earthworks stage's paved areas and surfaces, and lie ON the terrain: a
 carriageway body is pavement_m thick, a sidewalk body kerb + pavement_m (its side facing the carriageway is the kerb),
 a bridge deck bridge_deck_m. The mesh follows their undersides: its vertices under the paving are the same grid the
@@ -29,22 +37,26 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely import contains_xy, segmentize, set_precision
-from shapely.geometry import LineString, Point, box, shape
+from shapely.geometry import LineString, Point, box, mapping, shape
 from shapely.ops import unary_union
 
 from ..archicad import elements as el
 from ..archicad import site_writer as sw
-from ..archicad.client import ArchicadError, eid
+from ..archicad.client import ArchicadError, eid, use_version, version
 from ..archicad.session import connect_project, forget_project, project_is_open
 from ..config import settings
 from ..geometry.crs import LonLatUTM, Rigid2D
 from ..geometry.raster import nearest_fill, read_raster, sample_raster
 from ..geometry.bodies import GRID_OFFSET, prism, surface_body
+from ..geometry.contours import contour_lines, refine_points
 from ..geometry.terrain_mesh import adaptive_points
 from ..roads.geometry import as_polygons, rings_to_polygons
 from ..site import load_site
 from ..util import detail, file_signature, load_json, log, ok, save_json, skip, tool, warn
 from .buildings import terrain_under
+
+EDGE_STEP_M = 1.0  # vertex spacing of the terrain lines along the paving's edges (dense: no teeth between them)
+EDGE_EASE = 5      # heights along the lines beside the paving and the buildings eased over this many vertices
 
 
 def tiles(poly, size):
@@ -94,6 +106,10 @@ def _prepare_output(job):
     template = tool(job.cfg, "archicad_template")
     log(f"archicad: new PLN from {template}")
     out.parent.mkdir(parents=True, exist_ok=True)
+    if out.exists():  # anything added to it by hand is not lost: the previous file is kept in the cache
+        shutil.copy2(out, job.w("previous" + out.suffix))
+        detail(f"archicad: the previous PLN is kept as {job.w('previous' + out.suffix)}")
+    out.with_suffix(".bpn").unlink(missing_ok=True)  # Archicad's backup of the file being replaced
     forget_project(out)
     Path(str(out) + ".lck").unlink(missing_ok=True)
     shutil.copyfile(template, out)
@@ -101,7 +117,8 @@ def _prepare_output(job):
 
 SITE_LAYER_KEYS = ("layer_terrain", "layer_roads_existing", "layer_roads_proposed", "layer_sidewalks", "layer_road_lines",
                    "layer_walls", "layer_buildings_existing", "layer_buildings_proposed", "layer_underground",
-                   "layer_trees")
+                   "layer_trees", "layer_walls_existing", "layer_context_terrain", "layer_context_buildings",
+                   "layer_contours", "layer_hotlinks")
 
 
 def _layer_name(prefix, shown):
@@ -153,21 +170,57 @@ def sampler(arr, mask, gt):
     return lambda xy: sample_raster(full, gt, np.asarray(xy, dtype=np.float64).reshape(-1, 2), nan_outside=False)
 
 
-def open_rings(geom, step):
-    """The rings of a (multi)polygon, a vertex at least every `step`, each as two open lines (a mesh line does not
-    close on itself)."""
-    out = []
-    for poly in as_polygons(segmentize(geom, step)):
-        for ring in [poly.exterior] + list(poly.interiors):
-            c = np.asarray(ring.coords)[:, :2]
-            if len(c) >= 4:
-                m = len(c) // 2
-                out += [c[:m + 1], c[m:]]
+def eased(z, window, closed):
+    """Heights along a line eased over `window` vertices: a running median (drops the one-cell swings a raster
+    staircase leaves along a slanting edge), then a running mean."""
+    if window < 3 or len(z) < window:
+        return z
+    h = window // 2
+    ext = np.r_[z[-h:], z, z[:h]] if closed else np.pad(z, h, mode="edge")
+    med = np.median(np.lib.stride_tricks.sliding_window_view(ext, window), axis=1)
+    ext = np.r_[med[-1:], med, med[:1]] if closed else np.pad(med, 1, mode="edge")
+    out = np.convolve(ext, np.ones(3) / 3.0, mode="valid")
+    if not closed:
+        out[0], out[-1] = z[0], z[-1]
     return out
 
 
-def with_z(lines, zf):
-    return [np.column_stack([l, zf(l)]) for l in lines]
+def ring_lines(geom, step, zf, window=0):
+    """The rings of a (multi)polygon as mesh lines: a vertex at least every `step`, heights zf eased along the whole
+    ring over `window` vertices, each ring as two open lines (a mesh line does not close on itself)."""
+    out = []
+    for poly in as_polygons(segmentize(geom, step)):
+        for ring in [poly.exterior] + list(poly.interiors):
+            c = np.asarray(ring.coords)[:-1, :2]
+            if len(c) < 3:
+                continue
+            z = eased(zf(c), window, closed=True)
+            c = np.column_stack([c, z])
+            c = np.vstack([c, c[:1]])
+            m = len(c) // 2
+            out += [c[:m + 1], c[m:]]
+    return out
+
+
+def wall_lines(segments, half, zf, step, trim=0.3, probe=1.0):
+    """Mesh lines along both faces of every retaining wall piece (just clear of it), at the ground on that side (probed
+    `probe` beyond the face): the terrain meets the wall along a straight line instead of triangles across the step."""
+    out = []
+    for s in segments:
+        a, b = np.asarray(s["xy"], dtype=np.float64)
+        d = b - a
+        n = float(np.hypot(*d))
+        if n <= 2 * trim + 0.1:
+            continue
+        u = d / n
+        a, b = a + u * trim, b - u * trim
+        k = max(2, int(math.ceil((n - 2 * trim) / step)) + 1)
+        base = a + (b - a) * np.linspace(0.0, 1.0, k)[:, None]
+        nrm = np.array([-u[1], u[0]])
+        for side in (1.0, -1.0):
+            xy = base + side * (half + 0.05) * nrm
+            out.append(np.column_stack([xy, zf(base + side * (half + probe) * nrm)]))
+    return out
 
 
 def clip_lines(lines, poly):
@@ -236,6 +289,124 @@ def drawing_items(site, layer_index, pen_of, solid, text_scale, floor):
             ("CreateTexts", "textsData", texts, "texts"), ("CreateHotspots", "hotspotsData", spots, "points")]
 
 
+# --------------------------------------------------------------------------- hotlinked models
+FOOTPRINT_TYPES = ("Wall", "Slab", "Roof", "Shell", "Column", "Beam", "Morph", "Stair", "CurtainWall")
+
+
+def cover_stories(ac, low, high, step=3.0):
+    """The project's stories extended to indices low .. high (a hotlinked module's story k lands on story k; Archicad
+    leaves out what is on a story the project lacks). Existing stories keep their levels; new ones step_m apart."""
+    st = ac.tapir("GetStories")
+    have = {s["index"]: s for s in st["stories"]}
+    first, last = min(have), max(have)
+    if low >= first and high <= last:
+        return 0
+    rows = []
+    for i in range(min(low, first), max(high, last) + 1):
+        s = have.get(i)
+        level = s["level"] if s else (have[first]["level"] - (first - i) * step if i < first
+                                      else have[last]["level"] + (i - last) * step)
+        rows.append({"index": i, "level": level, "name": s.get("name", "") if s else "", "dispOnSections": bool(s and s.get(
+            "dispOnSections", True))})
+    ac.tapir("SetStories", {"stories": rows})
+    return len(rows) - len(have)
+
+
+def _local(geom, h, inverse):
+    """A plan geometry moved between the project and the module's own coordinates (its origin and rotation)."""
+    from shapely import affinity
+    x, y, a = float(h["x"]), float(h["y"]), float(h["rotation_deg"])
+    if inverse:
+        return affinity.rotate(affinity.translate(geom, -x, -y), -a, origin=(0, 0))
+    return affinity.translate(affinity.rotate(geom, a, origin=(0, 0)), x, y)
+
+
+def place_hotlinks(ac, hotlinks, layer, floor, z_ref, story, cache_path):
+    """The models in archicad.hotlinks placed as hotlinked modules (live links to their files), their origin at
+    (x, y, altitude - z reference), turned by rotation_deg. Returns [{name, instance, footprint, elements, z}]: the
+    footprint is the plan outline of the module's walls, slabs, roofs and solids (their boxes merged), which the
+    drawing's and OpenStreetMap's stand-ins give way to.
+
+    The API cannot delete a hotlink instance, so an earlier run's instance of the same file is moved to the asked
+    placement instead of placing a second one; the footprint is kept in the module's own coordinates (cache_path)
+    for that case."""
+    placed = []
+    cache = load_json(cache_path) or {}
+    spans = [h.get("stories", [0, 0]) for h in hotlinks if Path(h["file"]).exists()]
+    if spans:
+        added = cover_stories(ac, min(s[0] for s in spans), max(s[1] for s in spans))
+        if added:
+            detail(f"archicad: {added} stories added for the hotlinked models' stories (their elevations stay absolute)")
+    have = ac.tapir("GetElementsByType", {"elementType": "Hotlink"}).get("elements", [])
+    det = ac.tapir("GetDetailsOfElements", {"elements": have})["detailsOfElements"] if have else []
+    by_node = {d["details"]["hotlinkNodeId"]["guid"]: e for e, d in zip(have, det)
+               if isinstance(d, dict) and d.get("details", {}).get("hotlinkType") == "Module"
+               and d.get("layerIndex") == layer}
+    used = set()
+    for h in hotlinks:
+        if not Path(h["file"]).exists():
+            warn(f"archicad: hotlink {h['name']}: {h['file']} cannot be reached - left out")
+            continue
+        before = {e["elementId"]["guid"] for e in ac.api("API.GetAllElements")["elements"]}
+        node = ac.tapir("CreateHotlinkNodes", {"hotlinkNodes": [{"sourceLocation": h["file"], "name": h["name"],
+                                                                  "storyRangeType": "AllStories"}]},
+                        timeout=3600)["hotlinkNodes"][0]
+        if "hotlinkNodeId" not in node:
+            warn(f"archicad: hotlink {h['name']}: {h['file']} could not be linked ({node.get('error')}) - is it saved in "
+                 f"a newer Archicad than {version()}? Left out")
+            continue
+        z = float(h["altitude"]) - z_ref - story
+        where = {"origin": {"x": float(h["x"]), "y": float(h["y"]), "z": z},
+                 "rotationAngle": math.radians(float(h["rotation_deg"])), "floorDifference": 0,
+                 "adjustLevelDiffs": False, "ignoreTopFloorLinks": True}
+        nid = node["hotlinkNodeId"]["guid"]
+        old = by_node.get(nid)
+        if old is not None:
+            ac.tapir("ChangeHotlinkInstances", {"hotlinkInstances": [dict(where, elementId=old["elementId"])]},
+                     timeout=3600)
+            inst = [old["elementId"]["guid"]]
+        else:
+            res = ac.tapir("CreateHotlinkInstances", {"hotlinkInstances": [dict(
+                where, hotlinkNodeId=node["hotlinkNodeId"], floorIndex=floor, layerIndex=layer)]}, timeout=3600)
+            inst = el.created(f"hotlink {h['name']}", res.get("elements", []))
+        if not inst:
+            warn(f"archicad: hotlink {h['name']} could not be placed - left out")
+            continue
+        used.add(nid)
+        new = [e for e in ac.api("API.GetAllElements")["elements"] if e["elementId"]["guid"] not in before]
+        known = cache.get(h["file"])
+        if new:
+            types = ac.api("API.GetTypesOfElements", {"elements": new})["typesOfElements"]
+            solid = [e for e, t in zip(new, types) if t.get("typeOfElement", {}).get("elementType") in FOOTPRINT_TYPES]
+            boxes = [b.get("boundingBox3D") for b in (ac.api("API.Get3DBoundingBoxes", {"elements": solid})
+                                                        ["boundingBoxes3D"] if solid else [])]
+            boxes = [b for b in boxes if b]
+            rects = [box(b["xMin"], b["yMin"], b["xMax"], b["yMax"]) for b in boxes
+                     if (b["xMax"] - b["xMin"]) * (b["yMax"] - b["yMin"]) < 20000.0]  # not a whole-site terrain
+            fp = unary_union(rects).buffer(1.0, join_style=2).buffer(-1.0, join_style=2) if rects else None
+            zl = (min(b["zMin"] for b in boxes) - z, max(b["zMax"] for b in boxes) - z) if boxes else None
+            known = {"footprint": mapping(_local(fp, h, True)) if fp is not None else None, "z": zl,
+                     "elements": len(new)}
+            cache[h["file"]] = known
+            save_json(cache_path, cache)
+        elif known is None:
+            warn(f"archicad: hotlink {h['name']}: placed again, but its outline is not known (hotlinks.json is gone) - "
+                 "the stand-ins inside it stay; delete the hotlink in Archicad and run again")
+            known = {"footprint": None, "z": None, "elements": 0}
+        fp = _local(shape(known["footprint"]), h, False) if known.get("footprint") else None
+        zr = (known["z"][0] + z, known["z"][1] + z) if known.get("z") else None
+        placed.append({"name": h["name"], "instance": inst[0], "footprint": fp, "elements": known["elements"], "z": zr})
+        log(f"archicad: hotlink {h['name']}: {known['elements']:,} elements from {Path(h['file']).name}"
+            + (" (the earlier run's instance, moved to its placement)" if old is not None else "")
+            + (f", {fp.area:,.0f} m2 in plan, heights {zr[0] + z_ref:.1f} .. {zr[1] + z_ref:.1f} m"
+               if fp is not None and zr else ""))
+    stray = [e for nid, e in by_node.items() if nid not in used]
+    if stray:
+        warn(f"archicad: {len(stray)} hotlinked model(s) from an earlier run are no longer in archicad.hotlinks; "
+             "the API cannot delete them - delete them in Archicad")
+    return placed
+
+
 def site_geometry(job, ter, ew):
     """Everything the PLN is built from that needs no Archicad: the design terrain, the z reference, the paving as
     body pieces with their surfaces, and the terrain mesh's lines and points (also used by the checks)."""
@@ -289,13 +460,14 @@ def site_geometry(job, ter, ew):
     under = {k: (lambda xy, k=k: top_at[k](xy) - thick[k]) for k in pieces}
     U = unary_union([p for v in pieces.values() for p, _, b in v if not b]).intersection(inner)
     mesh_lines, grid_pts = [], []
+    edge_step = min(step, EDGE_STEP_M)
     if not U.is_empty:
         for k, v in pieces.items():
             for poly, _, on_bridge in v:
                 core = poly.intersection(inner).buffer(-inset, join_style=2, mitre_limit=2.0)
                 if on_bridge or core.is_empty:
                     continue
-                mesh_lines += clip_lines(with_z(open_rings(core, step), under[k]), inner)
+                mesh_lines += clip_lines(ring_lines(core, edge_step, under[k]), inner)
                 x0, y0, x1, y1 = core.bounds
                 gx, gy = np.meshgrid(np.arange(math.floor(x0 / cell) * cell + GRID_OFFSET, x1 + cell, cell),
                                      np.arange(math.floor(y0 / cell) * cell + GRID_OFFSET, y1 + cell, cell))
@@ -303,21 +475,72 @@ def site_geometry(job, ter, ew):
                 if m.any():
                     q = np.column_stack([gx[m], gy[m]])
                     grid_pts.append(np.column_stack([q, under[k](q)]))
-        mesh_lines += clip_lines(with_z(open_rings(U.buffer(gap, join_style=2, mitre_limit=2.0), step), beside_at), inner)
+        # the ground beside the paving, eased along the edge (the terrain raster steps a cell at a time there)
+        mesh_lines += clip_lines(ring_lines(U.buffer(gap, join_style=2, mitre_limit=2.0), edge_step, beside_at,
+                                            EDGE_EASE), inner)
     grid_pts = np.vstack(grid_pts) if grid_pts else np.zeros((0, 3))
-    valid = np.isfinite(z1) & contains_xy(inner, *np.meshgrid(
-        gt[0] + (np.arange(z1.shape[1]) + 0.5) * gt[1], gt[3] + (np.arange(z1.shape[0]) + 0.5) * gt[5]))
+    # breaklines where the ground steps: along the buildings' walls (the ground beside them) and both faces of every
+    # retaining wall; the terrain inside a building is hidden in its body, so it needs no points there
+    keep_off = U.buffer(gap + 0.3) if not U.is_empty else None
+    bj = load_json(job.w("buildings.json")) or {}
+    B = unary_union([shape(it["polygon"]) for k in ("existing", "proposed") for it in bj.get(k, [])])
+    if not B.is_empty:
+        H, W = z1.shape
+        BLD = contains_xy(B, *np.meshgrid(gt[0] + (np.arange(W) + 0.5) * gt[1], gt[3] + (np.arange(H) + 0.5) * gt[5]))
+        around_bld = sampler(z1, ~BLD, gt) or zf
+        rim = B.buffer(gap, join_style=2, mitre_limit=2.0)
+        lines = ring_lines(rim.intersection(inner), step, around_bld, EDGE_EASE)
+        mesh_lines += clip_lines(lines, inner.difference(keep_off) if keep_off is not None else inner)
+    half = float(cfg["roads"]["earthworks"]["wall_thickness_m"]) / 2.0
+    segs = (ew.get("retaining_walls") or {}).get("segments") or []
+    wl = wall_lines(segs, half, zf, edge_step)
+    free = inner
+    for g in (keep_off, B.buffer(gap + 0.3) if not B.is_empty else None):
+        if g is not None:
+            free = free.difference(g)
+    if wl:
+        mesh_lines += clip_lines(wl, free)
+    CX, CY = np.meshgrid(gt[0] + (np.arange(z1.shape[1]) + 0.5) * gt[1], gt[3] + (np.arange(z1.shape[0]) + 0.5) * gt[5])
+    valid = np.isfinite(z1) & contains_xy(inner, CX, CY)
+    if not B.is_empty:
+        valid &= ~BLD  # the point budget goes to the ground that shows
+    # the contour lines ("horizontals"): level lines of the mesh on the ground that shows - clear of the paving, the
+    # buildings and the retaining walls, whose own lines meet the ground there - drawn in 3D (ridges UserDefined)
+    # and, in colour, on the plan
+    cc = a["contours"]
+    contours = []
+    if cc["interval_m"]:
+        walls_zone = unary_union([LineString(s["xy"]).buffer(half + 1.3) for s in segs]) if segs else None
+        c_free = free.difference(walls_zone) if walls_zone is not None else free
+        c_valid = valid & ~((S["EX"] | S["CAR"] | S["SW"]))
+        contours = contour_lines(z1, gt, c_valid, float(cc["interval_m"]), float(cc["ease_m"]) / gt[1],
+                                 float(cc["simplify_m"]), float(cc["min_length_m"]), keep=c_free)
+        if cc["in_3d"]:
+            mesh_lines += [c for _, c in contours]
     tol, pts = adaptive_points(z1, gt, valid, tcfg)
-    if not U.is_empty:
-        pts = pts[~contains_xy(U.buffer(gap + 0.3), pts[:, 0], pts[:, 1])]
+    if keep_off is not None:
+        pts = pts[~contains_xy(keep_off, pts[:, 0], pts[:, 1])]
+    if not B.is_empty:
+        pts = pts[~contains_xy(B.buffer(gap + 0.3), pts[:, 0], pts[:, 1])]
     if mesh_lines:
-        d, _ = cKDTree(np.vstack([l[:, :2] for l in mesh_lines])).query(pts[:, :2])
+        # no point right beside a line (a fold between it and the line): measured to the lines densified, not only
+        # to their vertices - a simplified contour has long straight runs
+        dense = np.vstack([np.asarray(segmentize(LineString(l[:, :2]), 0.5).coords) for l in mesh_lines])
+        d, _ = cKDTree(dense).query(pts[:, :2])
         pts = pts[d > 0.75]
+    if contours and mesh_lines:
+        # the contour lines leave flat triangles in valleys, on ridges and on tops: points where the terrain still
+        # strays from the raster by more than the tolerance (open ground only, clear of the lines' own zones)
+        open_ground = c_valid & contains_xy(c_free, CX, CY)
+        extra = refine_points(np.vstack([pts, grid_pts] + list(mesh_lines)), z1, gt, open_ground, min(tol, 0.3))
+        if len(extra):
+            d, _ = cKDTree(dense).query(extra[:, :2])
+            pts = np.vstack([pts, extra[d > 0.25]])
     pts = np.vstack([pts, grid_pts])
 
     return {"z1": z1, "gt": gt, "zfilled": zfilled, "zf": zf, "z_ref": z_ref, "outline": outline, "pieces": pieces,
             "top_at": top_at, "under": under, "finished_at": finished_at, "mesh_lines": mesh_lines,
-            "grid_pts": grid_pts, "pts": pts, "tol": tol, "step": step, "cell": cell}
+            "grid_pts": grid_pts, "pts": pts, "tol": tol, "step": step, "cell": cell, "contours": contours}
 
 
 # --------------------------------------------------------------------------- stage
@@ -330,11 +553,14 @@ def run(job, force=False):
     wanted = {"design": file_signature(job.w("terrain_design.tif")), "roads": file_signature(job.w("roads.json")),
               "site": file_signature(job.w("site.pkl")),
               "buildings": file_signature(job.w("buildings.json")) if job.w("buildings.json").exists() else None,
-              "earthworks": file_signature(job.w("earthworks.json")), **settings(cfg, "archicad", "terrain")}
+              "earthworks": file_signature(job.w("earthworks.json")),
+              "context": file_signature(job.w("context.json")) if job.w("context.json").exists() else None,
+              **settings(cfg, "archicad", "terrain")}
     prev = load_json(result_path) or {}
     if not force and prev.get("saved") and prev.get("inputs") == wanted and Path(job.output_pln).exists():
         skip(f"archicad: {Path(job.output_pln).name} already holds this site model (--force redoes it)")
         return
+    use_version(a["version"])
     G = site_geometry(job, ter, ew)
     z1, gt, zfilled, zf, z_ref, outline = (G[k] for k in ("z1", "gt", "zfilled", "zf", "z_ref", "outline"))
     pieces, top_at, finished_at, cell = G["pieces"], G["top_at"], G["finished_at"], G["cell"]
@@ -375,6 +601,20 @@ def run(job, force=False):
     dwg_L = {raw: idx[n] for raw, n in dwg_names.items() if n in idx}
     detail(f"archicad: {len(all_names)} layers ({len(dwg_L)} from the drawing)")
 
+    # ---- the team's models (archicad.hotlinks), first: where they stand, the stand-ins below are left out
+    hot = place_hotlinks(ac, a["hotlinks"], L["layer_hotlinks"], floor, z_ref, story, job.w("hotlinks.json"))
+    if hot:
+        result["created"]["hotlinks"] = [h["instance"] for h in hot]
+        result["hotlinks"] = [{"name": h["name"], "elements": h["elements"], "plan_m2": round(h["footprint"].area)
+                               if h["footprint"] is not None else 0} for h in hot]
+    stand = unary_union([h["footprint"] for h in hot if h["footprint"] is not None]) if hot else None
+    stand = None if stand is None or stand.is_empty else stand
+
+    def replaced(poly, share):
+        """Whether a stand-in (drawn or OSM building, drawn wall) lies at least `share` inside a hotlinked model."""
+        return stand is not None and poly.intersects(stand) and poly.intersection(stand).area >= share * poly.area
+    left_out = Counter()
+
     # ---- the terrain mesh
     rel, mode = el.probe_mesh(ac, floor, story)
     mw = MeshWriter(floor, z_ref, story, rel, mode)
@@ -399,6 +639,28 @@ def run(job, force=False):
     detail(f"archicad: terrain top at {terrain_bb and round(terrain_bb['zMax'], 2)} m (expected {expect_top:.2f})")
     if terrain_bb is None or abs(terrain_bb["zMax"] - expect_top) >= 0.1:
         raise ArchicadError("the terrain mesh is not at the expected height - project NOT saved")
+
+    # ---- the surroundings (context stage): a second mesh around the survey terrain, whose outline is its hole
+    ctx = load_json(job.w("context.json")) or {}
+    if ctx.get("area") and job.w("context_terrain.tif").exists():
+        zc, cgt, _ = read_raster(job.w("context_terrain.tif"))
+        czf = lambda xy: sample_raster(zc, cgt, np.asarray(xy, dtype=np.float64).reshape(-1, 2), nan_outside=False)
+        carea, cg = shape(ctx["area"]), float(ctx["grid_m"])
+        outer = ring3(segmentize(carea, cg).exterior, czf)
+        CX, CY = np.meshgrid(cgt[0] + (np.arange(zc.shape[1]) + 0.5) * cgt[1], cgt[3] + (np.arange(zc.shape[0]) + 0.5) * cgt[5])
+        keep = contains_xy(carea.buffer(-0.5 * cg), CX, CY) & ~contains_xy(outline.buffer(0.7 * cg), CX, CY)
+        cpts = np.column_stack([CX[keep], CY[keep], zc[keep]])
+        c_level = math.floor(float(min(outer[:, 2].min(), ring[:, 2].min(), cpts[:, 2].min() if len(cpts) else 1e9))
+                             - z_ref - story) - 1.0
+        cmesh = mw.data(outer, [ring], [], cpts, c_level, a["mesh_skirt_type"], float(a["mesh_skirt_depth_m"]), extra)
+        cg_ = el.created("context terrain", ac.tapir("CreateMeshes", {"meshesData": [cmesh]}, timeout=3600).get("elements", []))
+        if cg_:
+            el.set_layer(ac, cg_, L["layer_context_terrain"], 500)
+            result["created"]["context_terrain"] = cg_
+            log(f"archicad: context terrain: {len(cpts):,} points over {(carea.area - outline.area) / 1e4:.0f} ha around "
+                "the survey terrain (world terrain model, fitted to it at its edge)")
+        else:
+            warn("archicad: the context terrain mesh could not be created - the surroundings have no ground")
 
     # ---- 3D bodies: Morph solids with their surfaces (streets, sidewalks, walls, buildings), trees as objects
     m_off = el.probe_morph(ac, floor)
@@ -429,6 +691,9 @@ def run(job, force=False):
     for key, layer in (("proposed", "layer_buildings_proposed"), ("existing", "layer_buildings_existing")):
         items = []
         for it in bj.get(key, []):
+            if key == "existing" and replaced(shape(it["polygon"]), 0.5):
+                left_out["drawn buildings"] += 1
+                continue
             for poly in as_polygons(shape(it["polygon"]).simplify(0.05).buffer(0)):
                 if poly.area < 1.0:
                     continue
@@ -451,6 +716,27 @@ def run(job, force=False):
         v, f = prism(poly, zm(seg["bottom"]), zm(seg["top"]))
         items.append(sw.morph_item(v, f, floor, m_off, kind, L["layer_walls"], surf.get("walls")))
     bodies["retaining_walls"] = (items, "retaining walls")
+    items = []
+    for w in bj.get("walls", []):  # walls drawn on the building layers (terrace parapets): pieces along the ground
+        if replaced(shape(w["polygon"]), 0.3):
+            left_out["drawn walls"] += 1
+            continue
+        for poly in as_polygons(shape(w["polygon"]).buffer(0)):
+            if poly.area >= 0.05:
+                v, f = prism(poly, zm(w["bottom_z"]), zm(w["top_z"]))
+                items.append(sw.morph_item(v, f, floor, m_off, kind, L["layer_walls_existing"], surf.get("walls_existing")))
+    bodies["walls_existing"] = (items, "existing walls")
+    items = []
+    for it in ctx.get("buildings", []):
+        if replaced(shape(it["polygon"]), 0.2):
+            left_out["OpenStreetMap buildings"] += 1
+            continue
+        for poly in as_polygons(shape(it["polygon"]).buffer(0)):
+            if poly.area >= 1.0 and it["top_z"] > it["bottom_z"]:
+                v, f = prism(poly, zm(it["bottom_z"]), zm(it["top_z"]))
+                items.append(sw.morph_item(v, f, floor, m_off, kind, L["layer_context_buildings"],
+                                           surf.get("context_buildings")))
+    bodies["context_buildings"] = (items, "buildings around the site")
     for key, (items, label) in bodies.items():
         if items:
             result["created"][key] = sw.batched_create(ac, "CreateMorphs", "morphsData", items, 20, label)
@@ -478,6 +764,10 @@ def run(job, force=False):
             xy = np.array([[t["x"], t["y"]] for t in trees])
             on_road = contains_xy(roadway, xy[:, 0], xy[:, 1]) if not roadway.is_empty else np.zeros(len(xy), bool)
             zt = finished_at(xy)
+            if stand is not None:
+                inside = contains_xy(stand, xy[:, 0], xy[:, 1])
+                left_out["trees"] += int(inside.sum())
+                on_road = on_road | inside
             o_off = sw.probe_object(ac, floor, part)
             items = [{"libraryPartName": part, "floorIndex": floor, "_layer": L["layer_trees"],
                       "coordinates": {"x": t["x"], "y": t["y"], "z": round(float(z) - z_ref + o_off, 3)},
@@ -495,6 +785,23 @@ def run(job, force=False):
             if items:
                 result["created"][f"dwg_{label}"] = sw.batched_create(ac, cmd, key, items, int(a["batch_size"]),
                                                                       f"drawing {label}")
+
+    if left_out:
+        log("archicad: inside the hotlinked models, left out: " + ", ".join(f"{k} {v}" for k, v in left_out.items()))
+        result["left_out_for_hotlinks"] = dict(left_out)
+
+    # ---- the contour lines on the plan, coloured by level as the survey's colour contour drawing
+    cc = a["contours"]
+    if cc["plan"] and G["contours"]:
+        pen_of = pen_of if a["two_d"] else sw.pen_mapper(ac)[0]
+        cols, step_c = cc["colours"], float(cc["interval_m"])
+        items = [{"floorInd": floor, "layerIndex": L["layer_contours"],
+                  "linePenIndex": pen_of(7, tuple(cols[int(round(lv / step_c)) % len(cols)])),
+                  "coordinates": sw.xy_list(c[:, :2])} for lv, c in G["contours"]]
+        result["created"]["contours"] = sw.batched_create(ac, "CreatePolylines", "polylinesData", items,
+                                                          int(a["batch_size"]), "contour lines")
+        log(f"archicad: {len(items):,} contour lines every {step_c:g} m on '{a['layer_contours']}' (colours cycling "
+            f"every {len(cols) * step_c:g} m)")
 
     # ---- place on the map (best effort)
     try:
@@ -531,6 +838,9 @@ def run(job, force=False):
     ac.tapir("SaveProject", timeout=3600)
     ac.watch.check()
     ok(f"archicad: saved {job.output_pln}")
+    bpn = Path(job.output_pln).with_suffix(".bpn")
+    if bpn.exists():  # Archicad's backup of the state before this save: kept in the cache, the output has the PLN only
+        shutil.move(str(bpn), str(job.w("previous.bpn")))
     if sw.FAILED:
         save_json(job.w("archicad_refused.json"), sw.FAILED)
         warn(f"archicad: {len(sw.FAILED)} elements were refused by Archicad ({", ".join(sorted({f.get('label', '?') for f in sw.FAILED}))}; details: "

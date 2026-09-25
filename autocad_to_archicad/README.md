@@ -1,13 +1,14 @@
 # AutoCAD site plan → Archicad site model
 
-Turns an AutoCAD site plan (DWG or DXF) and the survey point cloud of the site into an Archicad 28 file. **These two
+Turns an AutoCAD site plan (DWG or DXF) and the survey point cloud of the site into an Archicad file (29, or 28). **These two
 files are all it needs.** Where the site is, what each layer holds, the heights and the storeys of the new buildings
 are all worked out by code. The project's PDFs are optional: they add the underground levels and check the floor
 area.
 
 The file has:
 
-- a **terrain mesh** made from the point cloud,
+- a **terrain mesh** made from the point cloud, showing its **contour lines** (1 m) in 3D, with the same contours in
+  colour on the plan,
 - the **existing streets**, taken from OpenStreetMap and joined into one network, fitted to the kerbs in the
   drawing and regraded where new streets join them,
 - the **new streets** from the drawing, with profiles designed to the Armenian street norms (ՀՀՇՆ 30-01-2023), the
@@ -15,6 +16,10 @@ The file has:
 - the **buildings**: existing ones with heights from OpenStreetMap, new ones with the storeys read from the shadows
   drawn in the plan, and (with the PDF) the **underground levels**,
 - the **trees** of the drawing, as Archicad library objects,
+- the **surroundings**: the OpenStreetMap buildings around the site, on a terrain from the open world terrain model
+  that meets the survey terrain at its edge,
+- the team's own models of neighbouring landmarks (here the **Cascade** and the **Matenadaran**), **hotlinked** where
+  they stand (`archicad.hotlinks`),
 - the **drawing itself** on its own layers, over the terrain, as it looks in AutoCAD.
 
 Streets and sidewalks are grey solids lying on the terrain, which is cut and filled under and around them. The paving
@@ -26,7 +31,8 @@ data: their text, tables and colours. No AI image recognition is used.
 
 ## Quick start
 1. **Install once:**
-   - AutoCAD 2026 (it reads the DWG, without opening a window) and Archicad 28.
+   - AutoCAD 2026 (it reads the DWG, without opening a window) and Archicad 29 or 28. The file is written in the
+     newest one installed (`archicad.version`); hotlinked models must not be newer than it.
    - Tapir. If the relief tool is installed, you already have it. Otherwise run `dwg2ac.bat addon install` with
      Archicad closed.
    - This tool's Python: `powershell -ExecutionPolicy Bypass -File setup_env.ps1`.
@@ -68,7 +74,7 @@ placed on the map (latitude, longitude and UTM survey point).
 
 | layer | content |
 |---|---|
-| **Site - Terrain** | one mesh: the terrain, cut and filled for the streets. Under the paving it follows the bodies' undersides, with lines along the paving's edges |
+| **Site - Terrain** | one mesh: the terrain, cut and filled for the streets. Under the paving it follows the bodies' undersides, with lines along the paving's edges. Its contour lines (every 1 m) are level lines of the mesh, and the 3D shows the mesh's own lines only (ridges *User defined*): the contours, the ground along the paving, the buildings and the walls |
 | **Site - Roads existing** | the existing streets: dark grey solids (surface *Site - Asphalt*), 10 cm thick, lying on the terrain |
 | **Site - Roads proposed** | the new carriageways, dark grey, 10 cm thick, on their designed profile with a 20 ‰ cross fall, with their junction aprons and the driveways to the buildings |
 | **Site - Sidewalks proposed** | sidewalks, light grey (*Site - Paving*), 15 cm (kerb height) above the carriageway edge; the body reaches down to the carriageway's underside, so its side is the kerb |
@@ -78,6 +84,11 @@ placed on the map (latitude, longitude and UTM survey point).
 | **Site - Buildings proposed** | massing of the new buildings, one per outline, with their storeys |
 | **Site - Underground levels** | with the PDF: its underground levels (B1, B2 …), one slab per level |
 | **Site - Trees** | trees as library objects (*Tree Model Detailed*), sized to the drawn crown |
+| **Site - Walls existing** | walls drawn on the building layers (outlines thinner than 1.5 m, such as the Cascade's terrace parapets), in 3 m pieces that follow the ground, 1 m above its higher side (*Site - Stone*) |
+| **Site - Context terrain** | a second mesh around the survey terrain (250 m, 10 m grid, open world terrain model), fitted to it along its edge; the survey terrain is its hole |
+| **Site - Context buildings** | the OpenStreetMap buildings (and building parts) on it, with OSM heights or the usual storeys of their type |
+| **Site - Contours** | the contour lines of the finished terrain on the plan, their colour cycling every metre over 5 colours (the survey's colour contour drawing) |
+| **Site - Hotlinked models** | the models in `archicad.hotlinks` (for this project, in `config\project.json`: the Cascade and the Matenadaran) as hotlinked modules, which follow their files. The drawing's buildings and walls, OpenStreetMap's buildings and the trees inside them are left out |
 | **DWG - *layer*** | the drawing: lines, arcs, circles, fills and texts, one layer per AutoCAD layer, same colours. AutoCAD layers that were off stay hidden |
 
 The surfaces are made in the PLN with the colours in `archicad.surfaces`, so they can be changed there or later in
@@ -162,9 +173,19 @@ flush with its top.
    - Retaining walls are found where the slopes can't meet the ground, where they run into an existing street, at
      bridge abutments and between streets side by side on different levels. They are cut into pieces for Archicad.
    - Cut and fill are computed.
-10. **archicad**: writes the PLN, then checks and saves it. It opens its own Archicad and never touches another open
+10. **context**: the OpenStreetMap buildings around the site (Overpass: buildings, multipolygons and building
+    parts) and their ground from the open world terrain tiles. That ground differs from the survey terrain by a few metres;
+    the difference along the survey terrain's edge is carried over into it, so the two meet without a step.
+    `--set context.enabled=false` leaves the surroundings out.
+11. **archicad**: writes the PLN, then checks and saves it. It opens its own Archicad and never touches another open
     project.
-11. **report**: writes the HTML report.
+    - The hotlinked models go in first. Their plan outline (their walls, slabs, roofs and solids) decides which of the
+      drawing's and OpenStreetMap's stand-ins are left out.
+    - The contour lines come from the finished terrain, eased over 1 m, and are cut clear of the paving, the buildings
+      and the retaining walls. Where the contour mesh would leave flat triangles (valleys, ridges, tops) more than
+      30 cm off the terrain, points are added until it fits.
+    - The output folder holds only the PLN and the report. A PLN that is rebuilt from the template keeps its previous version in the cache folder (`previous.pln`), as does Archicad's own backup of a save (`previous.bpn`).
+12. **report**: writes the HTML report.
 
 ## Street rules
 The new streets follow **ՀՀՇՆ 30-01-2023** (Armenia, in force since 30 May 2023). It replaced ՀՀՇՆ 30-01-2014 and the

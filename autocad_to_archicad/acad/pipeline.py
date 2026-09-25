@@ -13,6 +13,8 @@
               their surfaces stop at the buildings
   earthworks  the street surfaces (continuous, smooth), the terrain under them and cut and filled around them; the
               ground under the buildings stays as it is
+  context     the surroundings: OSM buildings (with their building:parts) around the site, on a terrain from the
+              open world terrain model fitted to the survey terrain at its edge
   archicad    the PLN: terrain mesh, grey street and sidewalk solids lying on it, buildings, retaining walls, trees
               (library objects), the drawing in 2D; checked and saved
   report      the HTML report next to the PLN
@@ -49,6 +51,7 @@ STAGES = (
     Stage("buildings", "buildings", "buildings, trees and underground levels"),
     Stage("roads", "roads", "existing and new streets"),
     Stage("earthworks", "earthworks", "street surfaces; cut and fill the terrain for them"),
+    Stage("context", "context", "the surroundings: OSM buildings on the world terrain around the site"),
     Stage("archicad", "archicad", "write the Archicad file"),
     Stage("report", "report", "write the report"),
 )

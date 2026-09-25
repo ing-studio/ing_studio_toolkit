@@ -315,6 +315,7 @@ def run(job, force=False):
                         "match (see Placement).")
 
     n_ex, n_pr = len(bj["existing"]), len(bj["proposed"])
+    ctx = load_json(job.w("context.json")) or {}
     tiles = [("site plan", f"{inv['site']['bbox'][2] - inv['site']['bbox'][0]:,.0f} × "
                            f"{inv['site']['bbox'][3] - inv['site']['bbox'][1]:,.0f} m"),
              ("terrain", f"{ter['area_ha']} ha"), ("existing streets", f"{len(roads['existing'])} pieces"),
@@ -323,7 +324,22 @@ def run(job, force=False):
              ("cut / fill", f"{ew['cut_m3'] / 1000:,.0f}k / {ew['fill_m3'] / 1000:,.0f}k m³"),
              ("buildings", f"{n_ex} existing, {n_pr} new, {len(bj.get('demolished', []))} demolished"),
              ("trees", f"{(acj or {}).get('created', {}).get('trees', len(bj['trees'])):,}"),
-             ("underground levels", f"{len(bj.get('underground', []))}")]
+             ("underground levels", f"{len(bj.get('underground', []))}"),
+             ("walls on the building layers", f"{len(bj.get('walls', []))} pieces"),
+             ("surroundings", f"{len(ctx.get('buildings', [])):,} OSM buildings" if ctx.get("buildings") is not None
+              else "off"),
+             ("contour lines", f"{(acj or {}).get('created', {}).get('contours', 0):,} (every "
+                               f"{cfg['archicad']['contours']['interval_m']:g} m)"),
+             ("hotlinked models", ", ".join(f"{h['name']} ({h['elements']:,} elements)" for h in (acj or {}).get("hotlinks", []))
+              or "none")]
+    for h in cfg["archicad"]["hotlinks"]:
+        if h["name"] not in {x["name"] for x in (acj or {}).get("hotlinks", [])}:
+            warnings.append(f"The hotlinked model {html.escape(h['name'])} ({html.escape(h['file'])}) could not be placed: "
+                            "is its file reachable, and not saved in a newer Archicad? See the log.")
+    left = (acj or {}).get("left_out_for_hotlinks")
+    if left:
+        warnings.append("Inside the hotlinked models, left out as their stand-ins: "
+                        + ", ".join(f"{html.escape(k)} {v}" for k, v in left.items()) + ".")
     parts = [f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' "
              f"content='width=device-width,initial-scale=1'><title>Site model report</title><style>{CSS}</style></head>"
              f"<body><main><h1>Site model: {html.escape(Path(job.drawing).name)}</h1>"

@@ -4,19 +4,19 @@
   "files": {
     "acad/util.py": {
       "source": "relief/util.py",
-      "sha256": "e7d0b14ef043b33a040703685433a087661c6305b8c63e464e4727fefa097f6c"
+      "sha256": "261cca667accf35bcc97a29e5cd6134bbe2adaa26e128c2d301c2bea2c56514d"
     },
     "acad/archicad/client.py": {
       "source": "relief/archicad/client.py",
-      "sha256": "0c88d7fd076d50cf942ea3b2fbf91974196747091b775d78d8986d4f159f9948"
+      "sha256": "b619d8584c464220fbb3727abb00816787cc6205841fd37cf03651e40819e467"
     },
     "acad/archicad/session.py": {
       "source": "relief/archicad/session.py",
-      "sha256": "c0bb28f81e4189ae0f35fd2122b5ebfed4aed263092a39775be45aa70eca8fd7"
+      "sha256": "1bc2224501fe9ae2de17fbfcf9b4597d9195978502bf59dba9d67b884628e320"
     },
     "acad/archicad/addon.py": {
       "source": "relief/archicad/addon.py",
-      "sha256": "0e6e00959b19c740b8ff8a2d2a6905f6a9b9b96e37eb78d3b510d684e469b5f0"
+      "sha256": "91ba82f44931a13f79bc570d0a1ee84d95324a80223adecd29577ac8e6a75d5e"
     },
     "acad/archicad/elements.py": {
       "source": "relief/archicad/elements.py",

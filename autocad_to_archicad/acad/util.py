@@ -14,8 +14,8 @@ PIPELINE_DIR = Path(__file__).resolve().parent.parent
 TOOL_SEARCH = {
     "pdal_exe": [r"C:\Program Files\QGIS*\bin\pdal.exe"],
     "cloudcompare_exe": [r"C:\Program Files\CloudCompare*\CloudCompare.exe"],
-    "archicad_exe": [r"C:\Program Files\GRAPHISOFT\Archicad 28*\Archicad.exe"],
-    "archicad_template": [r"C:\Program Files\GRAPHISOFT\Archicad 28*\Defaults\Archicad\*.tpl"],
+    "archicad_exe": [r"C:\Program Files\GRAPHISOFT\Archicad {archicad}*\Archicad.exe"],
+    "archicad_template": [r"C:\Program Files\GRAPHISOFT\Archicad {archicad}*\Defaults\Archicad\*.tpl"],
 }
 
 _log_file = None
@@ -174,6 +174,9 @@ def tool(cfg, key):
     if configured and os.path.exists(configured):
         return configured
     for pattern in TOOL_SEARCH.get(key, []):
+        if "{archicad}" in pattern:
+            from .archicad.client import version  # the Archicad version in use (archicad.version)
+            pattern = pattern.format(archicad=version())
         hits = sorted(glob.glob(pattern))
         if hits:
             return hits[-1]
