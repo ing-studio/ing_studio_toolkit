@@ -222,6 +222,49 @@ class StreetNetwork(unittest.TestCase):
         self.assertAlmostEqual(float(st["z"][0]), 104.85, delta=0.05)
         self.assertAlmostEqual(float(st["z"][-1]), 99.0, delta=1e-6, msg="the correction fades out")
 
+    def test_existing_profile_ignores_a_deck_or_terrace(self):
+        from acad.roads import existing as X
+        s = np.arange(0.0, 400.0, 5.0)
+        g = 100.0 + 0.02 * s                       # a street climbing at 20 per mille
+        spike = (s >= 180) & (s <= 200)
+        z = X.street_profile(s, np.where(spike, g + 10.0, g), 0.12, 300.0)
+        self.assertLessEqual(np.abs(z - g).max(), 1.05, "a street cannot climb 10 m and back in 20 m")
+        # a longer raised stretch is within the rules; what tells it apart is that the survey sees a bridge deck
+        # there (or ground that is not level across): that ground gets no weight and the street runs straight on
+        hump = (s >= 180) & (s <= 240)
+        g = np.where(hump, g + 10.0, g)
+        z = X.street_profile(s, g, 0.12, 300.0, np.where(hump, 0.0, 1.0))
+        self.assertLess(np.abs(z - (100.0 + 0.02 * s)).max(), 0.05)
+        # a real long climb within the rules is followed
+        g = 100.0 + np.clip(s - 100.0, 0.0, 200.0) * 0.08
+        z = X.street_profile(s, g, 0.12, 300.0)
+        self.assertLess(np.median(np.abs(z - g)), 0.05)
+        self.assertLess(np.abs(np.diff(z) / 5.0).max(), 0.12 + 1e-6)
+
+    def test_ground_of_a_street_beside_a_slope(self):
+        from acad.roads import existing as X
+        # terrain: level street band at 50 m for y < 4, a slope rising 1 m per metre beyond
+        y = np.arange(20.0, -20.0, -0.5) - 0.25
+        Z = np.tile(np.where(y < 4.0, 50.0, 50.0 + (y - 4.0))[:, None], (1, 80))
+        gt = (0.0, 0.5, 0.0, 20.0, 0.0, -0.5)
+        pts = np.column_stack([np.arange(5.0, 35.0, 5.0), np.full(6, 3.0)])  # centre line 1 m off the edge
+        n = np.tile([0.0, 1.0], (6, 1))
+        g, spread = X.street_ground(Z, gt, pts, n, np.full(6, 4.0))
+        self.assertTrue(np.allclose(g, 50.0, atol=0.05), "the level band beside the line is the street")
+        self.assertTrue((spread < 0.1).all())
+
+    def test_off_ground_stretches_are_reported(self):
+        from acad.roads import existing as X
+        s = np.arange(0.0, 100.0, 5.0)
+        e = {"s": s, "z": np.full(len(s), 10.0), "ground": np.where((s > 40) & (s < 70), 14.0, 10.0),
+             "under": np.zeros(len(s), bool), "measured": np.ones(len(s), bool), "name": "A", "cls": "residential",
+             "osm_id": 1, "xy": np.column_stack([s, np.zeros(len(s))])}
+        out = X.off_ground(e, 1.5, 10.0)
+        self.assertEqual(len(out), 1)
+        self.assertAlmostEqual(out[0]["ground_minus_street_m"], 4.0)
+        e["under"] = e["ground"] > 12.0  # under a bridge: expected, not reported
+        self.assertEqual(X.off_ground(e, 1.5, 10.0), [])
+
     def test_axes_only_inside_the_carriageway(self):
         from shapely.geometry import LineString, box
         from acad.roads.proposed import within_carriageway
@@ -462,6 +505,44 @@ class SideSlopes(unittest.TestCase):
         self.assertTrue(np.isnan(d[r, c]))
         i = np.argmin(np.abs(Y[:, 0] - 13.25))  # ~6.5 m from the edge
         self.assertAlmostEqual(lo[i, 60], 10.0 - (20 - 3 - Y[i, 0]) / 1.5, delta=0.35)
+
+
+class Hotlinks(unittest.TestCase):
+    def test_footprint_leaves_out_the_site_plate(self):
+        from acad.stages.archicad import module_footprint
+        b = lambda x0, y0, x1, y1, z0=0.0, z1=10.0: {"xMin": x0, "yMin": y0, "xMax": x1, "yMax": y1, "zMin": z0, "zMax": z1}
+        walls = [b(0, 0, 40, 0.3), b(0, 19.7, 40, 20), b(0, 0, 0.3, 20), b(39.7, 0, 40, 20)]
+        plate = b(-100, -100, 140, 120, -2.0, 0.0)  # a terrain morph under everything
+        fp, z = module_footprint(walls + [b(0, 0, 40, 20, 9.7, 10.0), plate])
+        self.assertAlmostEqual(fp.area, 800.0, delta=1.0)
+        self.assertEqual(z, (-2.0, 10.0), "heights still span all elements")
+        fp, _ = module_footprint([plate])
+        self.assertAlmostEqual(fp.area, 240 * 220, delta=1.0, msg="a model that is only a plate keeps it")
+        self.assertEqual(module_footprint([]), (None, None))
+
+    def test_placement_round_trip(self):
+        from shapely.geometry import box
+        from acad.stages.archicad import _local
+        h = {"x": 100.0, "y": 50.0, "rotation_deg": 30.0}
+        g = box(0, 0, 10, 5)
+        back = _local(_local(g, h, False), h, True)
+        self.assertAlmostEqual(back.symmetric_difference(g).area, 0.0, places=6)
+
+
+class Contours(unittest.TestCase):
+    def test_levels_of_a_cone(self):
+        from acad.geometry.contours import contour_lines
+        x = (np.arange(200) + 0.5) * 0.5
+        X, Y = np.meshgrid(x, x[::-1])
+        Z = 100.0 - np.hypot(X - 50, Y - 50) * 0.2  # a cone: rings every 5 m of radius at 1 m levels
+        gt = (0.0, 0.5, 0.0, 100.0, 0.0, -0.5)
+        lines = contour_lines(Z, gt, np.ones_like(Z, bool), 1.0, sigma_px=0.0, simplify_m=0.05, min_len_m=3.0)
+        levels = sorted({lv for lv, _ in lines})
+        self.assertEqual(levels[-1], 99.0)
+        for lv, xyz in lines:
+            self.assertTrue(np.allclose(xyz[:, 2], lv))
+            r = np.hypot(xyz[:, 0] - 50, xyz[:, 1] - 50)
+            self.assertLess(np.abs(r - (100.0 - lv) / 0.2).max(), 0.3)
 
 
 class Vendored(unittest.TestCase):

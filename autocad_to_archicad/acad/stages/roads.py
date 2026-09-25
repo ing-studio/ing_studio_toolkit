@@ -93,8 +93,21 @@ def run(job, force=False):
         length = sum(float(e["s"][-1]) for e in ex_edges)
         log(f"roads: existing: {len(ex_edges)} streets (OSM ways joined into continuous streets), {length / 1000:.2f} km, "
             f"{net['junctions']} junctions joined; {snapped} fitted to the drawing's kerbs ({len(kerbs):,} kerb lines), "
-            "the others at their OSM / class width")
-    existing = RoadNet(ex_edges, ex_area, cf, float(cfg["roads"]["profile"]["junction_blend_m"]))
+            "the others at their OSM / class width"
+            + (f"; {net['under_bridges_m']} m pass under bridges (their decks do not set the street's height)"
+               if net["under_bridges_m"] else ""))
+        if net["off_ground"]:
+            ex = cfg["roads"]["existing"]
+            warnings.append(
+                f"{len(net['off_ground'])} stretches of existing streets run where the survey's ground is more than "
+                f"{ex['off_ground_m']} m off a street's possible profile (roads.existing.max_grade_permille of its class, "
+                f"vertical curves of {ex['min_vertical_radius_m']} m): the OSM centre line strays onto a slope or a wall "
+                "beside the real street there, or the survey has a gap; the street keeps its profile and the ground is "
+                "cut / filled to it: " + ", ".join(
+                    f"{x['street']} {x['from_m']:.0f}-{x['to_m']:.0f} m ({x['ground_minus_street_m']:+.1f} m at "
+                    f"{x['at'][0]:.0f}, {x['at'][1]:.0f})" for x in net["off_ground"][:8])
+                + (" ..." if len(net["off_ground"]) > 8 else ""))
+    existing =RoadNet(ex_edges, ex_area, cf, float(cfg["roads"]["profile"]["junction_blend_m"]))
 
     pr_edges, car, sw, summary, w = [], None, None, {}, []
     if cfg["roads"]["proposed"]["enabled"]:
@@ -194,5 +207,6 @@ def run(job, force=False):
                     "existing_area": mapping(ex_area) if ex_area is not None and not ex_area.is_empty else None,
                     "carriageway_area": mapping(car) if car is not None and not car.is_empty else None,
                     "sidewalk_area": mapping(sw) if sw is not None and not sw.is_empty else None,
-                    "summary": dict(summary, existing_network={"streets": len(ex_edges), "junctions": net["junctions"]}
+                    "summary": dict(summary, existing_network={"streets": len(ex_edges), "junctions": net["junctions"],
+                                                               "off_ground": net["off_ground"]}
                                     if net else summary), "warnings": warnings})

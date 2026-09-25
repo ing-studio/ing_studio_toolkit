@@ -16,8 +16,8 @@ zero altitude):
                               whose outline is its hole, and the OpenStreetMap buildings on it (Morph solids)
   Site - Contours             the contour lines of the finished terrain, coloured by level (archicad.contours); the
                               same lines are level lines of the terrain mesh, which shows them in 3D
-  Site - Hotlinked models     the team's models (archicad.hotlinks, e.g. the Cascade, the Matenadaran) as hotlinked
-                              modules; the drawing's and OpenStreetMap's stand-ins inside them are left out
+  Site - Hotlinked models     the team's own models of neighbouring buildings (archicad.hotlinks, set per project) as
+                              hotlinked modules; the drawing's and OpenStreetMap's stand-ins inside them are left out
   DWG - <layer>               the drawing itself: lines, arcs, circles, fills, texts on the drawing's layers
 The file is written in the Archicad version archicad.version (auto: the newest installed).
 Layering: the street bodies are exactly the earthworks stage's paved areas and surfaces, and lie ON the terrain: a
@@ -57,6 +57,7 @@ from .buildings import terrain_under
 
 EDGE_STEP_M = 1.0  # vertex spacing of the terrain lines along the paving's edges (dense: no teeth between them)
 EDGE_EASE = 5      # heights along the lines beside the paving and the buildings eased over this many vertices
+WALL_PROBE_M = 1.0  # the ground beside a retaining wall is read this far beyond its face
 
 
 def tiles(poly, size):
@@ -202,7 +203,7 @@ def ring_lines(geom, step, zf, window=0):
     return out
 
 
-def wall_lines(segments, half, zf, step, trim=0.3, probe=1.0):
+def wall_lines(segments, half, zf, step, trim=0.3, probe=WALL_PROBE_M):
     """Mesh lines along both faces of every retaining wall piece (just clear of it), at the ground on that side (probed
     `probe` beyond the face): the terrain meets the wall along a straight line instead of triangles across the step."""
     out = []
@@ -312,6 +313,21 @@ def cover_stories(ac, low, high, step=3.0):
     return len(rows) - len(have)
 
 
+def module_footprint(boxes, plate_share=0.5, close_m=1.0):
+    """Plan outline of a model from its elements' 3D boxes (walls, slabs, roofs, solids): the boxes merged, gaps up to
+    close_m closed. A box covering more than plate_share of the whole model's extent is a terrain or site plate, not
+    the building: it is left out (unless nothing else is left). Returns (polygon or None, (z min, z max) or None)."""
+    boxes = [b for b in boxes if b]
+    if not boxes:
+        return None, None
+    area = lambda b: (b["xMax"] - b["xMin"]) * (b["yMax"] - b["yMin"])
+    extent = area({k: f(b[k] for b in boxes) for k, f in (("xMin", min), ("yMin", min), ("xMax", max), ("yMax", max))})
+    keep = [b for b in boxes if area(b) <= plate_share * extent] or boxes
+    rects = [box(b["xMin"], b["yMin"], b["xMax"], b["yMax"]) for b in keep]
+    fp = unary_union(rects).buffer(close_m, join_style=2).buffer(-close_m, join_style=2)
+    return (None if fp.is_empty else fp), (min(b["zMin"] for b in boxes), max(b["zMax"] for b in boxes))
+
+
 def _local(geom, h, inverse):
     """A plan geometry moved between the project and the module's own coordinates (its origin and rotation)."""
     from shapely import affinity
@@ -380,11 +396,8 @@ def place_hotlinks(ac, hotlinks, layer, floor, z_ref, story, cache_path):
             solid = [e for e, t in zip(new, types) if t.get("typeOfElement", {}).get("elementType") in FOOTPRINT_TYPES]
             boxes = [b.get("boundingBox3D") for b in (ac.api("API.Get3DBoundingBoxes", {"elements": solid})
                                                         ["boundingBoxes3D"] if solid else [])]
-            boxes = [b for b in boxes if b]
-            rects = [box(b["xMin"], b["yMin"], b["xMax"], b["yMax"]) for b in boxes
-                     if (b["xMax"] - b["xMin"]) * (b["yMax"] - b["yMin"]) < 20000.0]  # not a whole-site terrain
-            fp = unary_union(rects).buffer(1.0, join_style=2).buffer(-1.0, join_style=2) if rects else None
-            zl = (min(b["zMin"] for b in boxes) - z, max(b["zMax"] for b in boxes) - z) if boxes else None
+            fp, zl = module_footprint(boxes)
+            zl = (zl[0] - z, zl[1] - z) if zl else None
             known = {"footprint": mapping(_local(fp, h, True)) if fp is not None else None, "z": zl,
                      "elements": len(new)}
             cache[h["file"]] = known
@@ -510,7 +523,8 @@ def site_geometry(job, ter, ew):
     cc = a["contours"]
     contours = []
     if cc["interval_m"]:
-        walls_zone = unary_union([LineString(s["xy"]).buffer(half + 1.3) for s in segs]) if segs else None
+        # the walls' own terrain lines lie probe_m beyond their faces: the contours stop short of them
+        walls_zone = unary_union([LineString(s["xy"]).buffer(half + WALL_PROBE_M + 0.3) for s in segs]) if segs else None
         c_free = free.difference(walls_zone) if walls_zone is not None else free
         c_valid = valid & ~((S["EX"] | S["CAR"] | S["SW"]))
         contours = contour_lines(z1, gt, c_valid, float(cc["interval_m"]), float(cc["ease_m"]) / gt[1],

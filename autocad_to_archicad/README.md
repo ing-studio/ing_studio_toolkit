@@ -18,8 +18,8 @@ The file has:
 - the **trees** of the drawing, as Archicad library objects,
 - the **surroundings**: the OpenStreetMap buildings around the site, on a terrain from the open world terrain model
   that meets the survey terrain at its edge,
-- the team's own models of neighbouring landmarks (here the **Cascade** and the **Matenadaran**), **hotlinked** where
-  they stand (`archicad.hotlinks`),
+- optionally, the team's own **models of neighbouring buildings**, **hotlinked** where they stand (see "Hotlinked
+  models" below),
 - the **drawing itself** on its own layers, over the terrain, as it looks in AutoCAD.
 
 Streets and sidewalks are grey solids lying on the terrain, which is cut and filled under and around them. The paving
@@ -84,11 +84,11 @@ placed on the map (latitude, longitude and UTM survey point).
 | **Site - Buildings proposed** | massing of the new buildings, one per outline, with their storeys |
 | **Site - Underground levels** | with the PDF: its underground levels (B1, B2 …), one slab per level |
 | **Site - Trees** | trees as library objects (*Tree Model Detailed*), sized to the drawn crown |
-| **Site - Walls existing** | walls drawn on the building layers (outlines thinner than 1.5 m, such as the Cascade's terrace parapets), in 3 m pieces that follow the ground, 1 m above its higher side (*Site - Stone*) |
+| **Site - Walls existing** | walls drawn on the building layers (outlines thinner than 1.5 m, such as terrace parapets), in 3 m pieces that follow the ground, 1 m above its higher side (*Site - Stone*) |
 | **Site - Context terrain** | a second mesh around the survey terrain (250 m, 10 m grid, open world terrain model), fitted to it along its edge; the survey terrain is its hole |
 | **Site - Context buildings** | the OpenStreetMap buildings (and building parts) on it, with OSM heights or the usual storeys of their type |
 | **Site - Contours** | the contour lines of the finished terrain on the plan, their colour cycling every metre over 5 colours (the survey's colour contour drawing) |
-| **Site - Hotlinked models** | the models in `archicad.hotlinks` (for this project, in `config\project.json`: the Cascade and the Matenadaran) as hotlinked modules, which follow their files. The drawing's buildings and walls, OpenStreetMap's buildings and the trees inside them are left out |
+| **Site - Hotlinked models** | the models in `archicad.hotlinks` (see "Hotlinked models") as hotlinked modules, which follow their files. The drawing's buildings and walls, OpenStreetMap's buildings and the trees inside them are left out |
 | **DWG - *layer*** | the drawing: lines, arcs, circles, fills and texts, one layer per AutoCAD layer, same colours. AutoCAD layers that were off stay hidden |
 
 The surfaces are made in the PLN with the colours in `archicad.surfaces`, so they can be changed there or later in
@@ -138,8 +138,16 @@ flush with its top.
 8. **roads**:
    - **Existing streets** come from OpenStreetMap, only those on the ground: tunnels, covered passages and bridges
      are left out. OpenStreetMap splits a street into many pieces; they are joined back into whole streets. Each is
-     moved and widened to the drawing's kerb lines, and its profile follows the smoothed ground. At junctions the
-     streets meet on one point and at one height, with round ends and rounded kerb corners (6 m).
+     moved and widened to the drawing's kerb lines. At junctions the streets meet on one point and at one height,
+     with round ends and rounded kerb corners (6 m).
+   - **The profile of an existing street** stays as close to the ground as a real street can: no steeper than its
+     OpenStreetMap class allows (main roads 100–120 ‰, lanes 200 ‰) and with vertical curves of at least 300 m. It
+     keeps to the least *absolute* difference from the ground, so a short stretch of wrong ground does not pull it
+     up or down. The ground a street stands on is read across its carriageway, from the most level band within half
+     a carriageway of its centre line: an OpenStreetMap line a few metres off lies partly on the slope beside the
+     street. Ground that is not level across (a slope, a wall) counts less. Under an OpenStreetMap bridge the survey
+     sees the deck, not the street, so that ground does not count and the street runs on below it. Stretches where the
+     ground stays more than 1.5 m off the street are listed in the report.
    - **New streets** come from the drawing: the carriageway, the axis lines and the sidewalks. An axis line counts
      only where it runs inside the carriageway, at least 1.5 m from its edge. Axis lines drawn along existing streets
      or along the carriageway's edge (lane lines) are not new streets, and an axis drawn twice counts once. Their
@@ -184,8 +192,37 @@ flush with its top.
     - The contour lines come from the finished terrain, eased over 1 m, and are cut clear of the paving, the buildings
       and the retaining walls. Where the contour mesh would leave flat triangles (valleys, ridges, tops) more than
       30 cm off the terrain, points are added until it fits.
-    - The output folder holds only the PLN and the report. A PLN that is rebuilt from the template keeps its previous version in the cache folder (`previous.pln`), as does Archicad's own backup of a save (`previous.bpn`).
+    - The output folder holds only the PLN and the report. A PLN that is rebuilt from the template keeps its previous
+      version in the cache folder (`previous.pln`), as does Archicad's own backup of a save (`previous.bpn`).
 12. **report**: writes the HTML report.
+
+## Hotlinked models
+Models the team already has of buildings next to the site (a landmark, a neighbouring project) can be placed in the
+PLN as **hotlinked modules**. They stay live links to their files, and where one stands the drawing's buildings and
+walls, OpenStreetMap's buildings and the trees are left out, so nothing is doubled. They are set per project in
+`config\project.json` (not in `default.json`, and not in git):
+
+```json
+{"archicad": {"hotlinks": [
+  {"name": "Museum", "file": "\\\\server\\projects\\museum\\museum.pln",
+   "x": 1818.6, "y": 1053.4, "altitude": 1007.3, "rotation_deg": 0.16, "stories": [0, 0]}
+]}}
+```
+
+| key | meaning |
+|---|---|
+| `x`, `y` | where the model's origin (its 0,0) lands, in the drawing's coordinates in metres |
+| `altitude` | the altitude (m above sea level) of the model's zero level |
+| `rotation_deg` | the model's turn, counter-clockwise |
+| `stories` | the model's lowest and highest story index. The PLN gets those stories, because Archicad leaves out whatever is on a story the host lacks |
+
+To find the numbers, place the model once in any PLN that already has the site (for example, a colleague's
+coordination file): its hotlink's origin, rotation and elevation there give them. The model must not be saved in a
+newer Archicad than the PLN (`archicad.version`). A model that can't be reached, or can't be linked, is left out
+with a warning.
+
+Archicad's API cannot delete a hotlink. A rerun therefore moves the existing one into place instead of adding a
+second one. A model taken out of the list must be deleted in Archicad by hand; the run warns about it.
 
 ## Street rules
 The new streets follow **ՀՀՇՆ 30-01-2023** (Armenia, in force since 30 May 2023). It replaced ՀՀՇՆ 30-01-2014 and the
@@ -250,6 +287,7 @@ Add these after the file names, for example `dwg2ac.bat plan.dwg survey.e57 --st
 | embankments instead of bridges | `--set roads.earthworks.max_fill_m=null` |
 | gentler side slopes | `--set roads.earthworks.fill_slope_h_per_v=2 --set roads.earthworks.cut_slope_h_per_v=2` |
 | existing streets never regraded | `--set roads.existing.regrade_grade_permille=null` |
+| steeper existing lanes allowed (a very hilly town) | `--set roads.existing.max_grade_permille.default=250` |
 | exact altitudes, from a surveyed point | `--set cloud.z_to_altitude=1146.35` (metres added to the point cloud heights) |
 | no 2D copy of the drawing | `--no-2d` |
 | another part of the drawing | `--set drawing.region=[x1,y1,x2,y2]` (drawing units) |
@@ -301,7 +339,10 @@ To keep values for a project, write only those keys into `config\project.json`, 
 - New buildings without a drawn shadow are shown 1 storey high and listed.
 - Buildings and walls are massing (Morph solids), not Archicad walls or slabs.
 - Bridges are shown as the street deck above the ground. Piers are not modelled.
-- OpenStreetMap bridges and flyovers are left out, so a street that continues onto one ends there.
+- OpenStreetMap bridges and flyovers are left out, so a street that continues onto one ends there. A street passing
+  under one keeps its own level, and the survey's deck is cut away over the street's width.
+- An existing street whose OpenStreetMap line lies well off the real street (more than half a carriageway) and has
+  no kerbs in the drawing to correct it may still sit off its real level; the report lists those stretches.
 - The drawing's paving that joins no street, lies farther than 25 m from one, or would need more than 1 m of cut or
   fill (a plaza on a slope, a verge on an embankment) stays in 2D on the existing ground.
 - PDFs are read with PyMuPDF (AGPL licence, fine for in-house use).
