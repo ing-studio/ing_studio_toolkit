@@ -8,6 +8,7 @@ explains how to use it.
 |---|---|
 | [pointcloud_to_archicad_relief](pointcloud_to_archicad_relief/README.md) | Point cloud → Archicad terrain mesh + contour layers |
 | [autocad_to_archicad](autocad_to_archicad/README.md) | AutoCAD site plan + point cloud (+ optional project PDFs) → Archicad site model: terrain, existing and new streets (Armenian street norms), buildings, trees, underground levels, the drawing in 2D. The site's position and the layers' meaning are worked out automatically |
+| [uid_assignment](uid_assignment/README.md) | Archicad add-on (Tapir palette button): window types → IDs Պ-01, Պ-02 … in every window, ID labels on the layer `Window IDs - Floor Plans`, and on `Window Types - Measurements` a worksheet with each type's front view, dimensions and a table (or all of it as output .pln/.pdf files) |
 
 ## Get it
 ```

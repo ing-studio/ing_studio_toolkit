@@ -1,0 +1,7 @@
+# project files and what runs make of them stay on the machine
+*.pln
+*.pln.lck
+*.bpn
+output/
+test_data/
+config/project.json

@@ -1,0 +1,39 @@
+{
+  "_prefix": "the letter of the IDs and the separator: Պ-01, Պ-02 ...; digits: how many digits the number has",
+  "prefix": "Պ-",
+  "digits": 2,
+  "_prime": "the mark of the type that opens to the other side: Պ-03 and Պ-03'",
+  "prime": "'",
+  "_order": "which type gets which new number: floor (lowest story first, then top to bottom and left to right on the plan), size (largest first), count (most windows first)",
+  "order": "floor",
+  "_keep_existing": "true: types keep the Պ numbers their windows already have, new types get the next ones",
+  "keep_existing": true,
+  "_hand_param": "the GDL parameter with the opening side (L / R); windows that differ only in it share a number, with a prime",
+  "hand_param": "ac_OpeningSide",
+  "_type_params": "GDL parameters that are part of the type, besides library part, width and height (a window part without one of them just leaves it out)",
+  "type_params": ["vgn_01", "hgn_01", "gs_UTrans", "iMullionStyle_00", "gs_frame_width"],
+  "_layers": "the tool's own layers: ids = the ID text next to every window on the floor plans, types = the worksheet with the window types and their measurements",
+  "layers": {
+    "ids": "Window IDs - Floor Plans",
+    "types": "Window Types - Measurements"
+  },
+  "_layer_combinations": "when the tool makes its layers, Archicad hides them in every layer combination. ids / types: in which combinations to show them then - \"all\", or words of which one is in the combination's name (the IDs: only on the window marking plans). own: the name of a layer combination made once with the IDs shown (null: none)",
+  "layer_combinations": {
+    "ids": ["պատուհան", "window"],
+    "types": "all",
+    "own": "Window IDs - Floor Plans"
+  },
+  "worksheet": {
+    "name": "Պատուհանների տեսքեր",
+    "reference_id": "Պ",
+    "title": "Պատուհանների տեսքեր",
+    "table_title": "Պատուհանների մասնագիր",
+    "_scale": "the scale the worksheet is printed at (text sizes and spacing are set for it)",
+    "scale": 50,
+    "_row_width_mm": "the width of a row of front views on paper; the next type starts a new row",
+    "row_width_mm": 420,
+    "_outline_pen": "pen number of the window outlines and the table frame; null = the Polyline tool's pen",
+    "outline_pen": null
+  },
+  "schedule_name": "Պատուհանների մասնագիր"
+}
