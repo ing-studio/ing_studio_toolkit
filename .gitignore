@@ -3,3 +3,10 @@ __pycache__/
 .vscode/
 .idea/
 Thumbs.db
+
+# 3D models and scenes - too big for git (GitHub refuses files over 100 MB): keep them on the shared drive
+*.max
+*.fbx
+*.skp
+*.3ds
+*.obj

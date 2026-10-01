@@ -1,0 +1,333 @@
+source,meshes,skp_rgb,part,rule
+TG_skill_sandstone_plastic_2,3106,"46,46,46",TG_SAND_PLASTIC_DARK,TG plastic
+TG_skill_anthracitesilver_plastic_1,2214,"148,140,130",TG_SAND_PLASTIC,finish->sandstone; TG plastic
+TG_skill_sandstone_belt,1912,"46,46,46",TG_BELT,TG belt
+acad8bf1fecb,1735,"198,198,198",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+e4ab1202_1d96_4988_8a9c_7b34b0b5c04e,1548,"46,46,46",TG_PLASTIC_DARK_GREY,colour: neutral grey
+d475d179_e5b1_45e9_ad8c_73abedca97c9,1176,"38,38,38",TG_PLASTIC_DARK_GREY,colour: neutral grey
+material__5_aee9efb6,1176,"255,255,255",TG_WHITE,colour: neutral grey
+material__6_aee9efb6,1056,"43,43,43",TG_PLASTIC_DARK_GREY,colour: neutral grey
+material__2_aee9efb6,984,"30,30,30",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_pureplate_sandstone_frame,979,"136,126,120",TG_SAND_FRAME,TG frame
+TG_fixed_black_2,845,"52,52,52",TG_BLACK_PLASTIC,TG fixed black
+M_47f2c740_1e29_464b_9aa7_d7119ba827fa,789,"52,52,52",TG_PLASTIC_DARK_GREY,colour: neutral grey
+_auto_,736,"255,255,255",TG_WHITE,colour: neutral grey
+TG_free_weights_sandstone_frame_performance,565,"136,126,120",TG_SAND_FRAME,TG frame
+TG_artis_cardio_sandstone_plastic_2,543,"136,126,120",TG_SAND_PLASTIC,TG plastic
+TG_free_weights_sandstone_plastic_1,513,"136,126,120",TG_SAND_PLASTIC,TG plastic
+TG_free_weights_diamondblack_frame_performance,504,"136,126,120",TG_SAND_FRAME,finish->sandstone; TG frame
+M_7dd9fb7f_6705_41bb_9b74_70b22efcd9c5,492,"226,226,226",TG_WHITE,colour: neutral grey
+acadc9494b60,432,"40,40,40",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_free_weights_diamondblack_plastic_1,414,"136,126,120",TG_SAND_PLASTIC,finish->sandstone; TG plastic
+Grey_Dumb_ede6faa3,360,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+Black_Metal__d81abc68,337,"21,21,21",TG_BLACK_GLOSS,name: black metal
+TG_cablestations_sandstone_plastic_1,304,"136,126,120",TG_SAND_PLASTIC,TG plastic
+TG_biostrength_sandstone_frame,284,"160,152,140",TG_SAND_FRAME,TG frame
+TG_cablestations_sandstone_frame,253,"160,152,140",TG_SAND_FRAME,TG frame
+TG_skill_anthracitesilver_belt,230,"46,46,46",TG_BELT,finish->sandstone; TG belt
+TG_biostrength_sandstone_plastic_2,221,"136,126,120",TG_SAND_PLASTIC,TG plastic
+Black_Metal__2ec29d1d,213,"21,21,21",TG_BLACK_GLOSS,name: black metal
+f2225806_46d5_48fa_a007_7f3598a7d497,210,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+TG_artis_strength_sandstone_plastic_2,207,"136,126,120",TG_SAND_PLASTIC,TG plastic
+TG_artis_strength_sandstone_frame,193,"160,152,140",TG_SAND_FRAME,TG frame
+fdcce71c_4f00_471f_8d7c_df0263cd6e9b,192,"3,3,3",TG_BLACK_PLASTIC,colour: neutral grey
+eacedcb3_9648_4a97_821d_9de073f9059d,182,"136,126,120",TG_SAND_PLASTIC,colour: sandstone-like
+stainless_steel__8404ea95,180,"180,180,180",TG_CHROME,name: chrome/steel
+TG_fixed_black,176,"52,52,52",TG_BLACK_PLASTIC,TG fixed black
+e8e99d34_21f4_4138_9d64_e5c821da3b8b,160,"37,37,37",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_skill_anthracitesilver_plastic_2,154,"46,46,46",TG_SAND_PLASTIC_DARK,finish->sandstone; TG plastic
+TG_artis_cardio_sandstone_plastic_1,153,"148,140,130",TG_SAND_PLASTIC,TG plastic
+TG_pureplate_sandstone_accent,147,"136,126,120",TG_SAND_FRAME,TG frame
+M_27559adc_585a_4a96_96d3_0bdb7edd40ce,144,"87,87,87",TG_PLASTIC_MID_GREY,colour: neutral grey
+TG_fixed_yellow_handles,132,"229,232,99",TG_YELLOW,TG yellow handles
+TG_logo_silver,130,"255,255,255",TG_LOGO_WHITE,TG logo/sticker
+Plastic_Black_caec0045,115,"44,44,44",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_biostrength_sandstone_plastic_1,114,"148,140,130",TG_SAND_PLASTIC,TG plastic
+M_36bd3678_d019_43a9_89f7_f7bdb5645275,112,"38,38,38",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Material__37_d9ef82fd,108,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+TG_fixed_satin_metal,106,"198,198,198",TG_METAL_SATIN,TG satin metal
+material__4_aee9efb6,96,"253,241,102",TG_YELLOW,colour: accent
+f84677b5_fe50_4bbf_9b1c_5bb5ed282813,91,"160,152,140",TG_SAND_PLASTIC,colour: sandstone-like
+dac21c5be0a0124,90,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+acad1a459b67,86,"3,3,3",TG_BLACK_PLASTIC,colour: neutral grey
+acadf3ecef20,85,"52,52,52",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_0b34c271_4367_4538_a346_d55db84041d6,74,"52,52,52",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_artis_cardio_sandstone_steps,72,"46,46,46",TG_SAND_PLASTIC_DARK,TG steps
+M_0b8870d4_14ca_417c_b85d_937de15a0528,70,"255,223,0",TG_YELLOW,colour: accent
+reformer_black_p_9ea055fa,70,"68,68,68",TG_PLASTIC_MID_GREY,colour: neutral grey
+TG_artis_cardio_sandstone_plastic_3,64,"160,152,140",TG_SAND_PLASTIC,TG plastic
+e3736644_9b6f_41b5_bf05_d66abb5f4b07,60,"255,0,0",TG_RED,colour: accent
+Plastic_Grey_Har_310e94be,56,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+TG_skill_sandstone_frame,56,"160,152,140",TG_SAND_FRAME,TG frame
+TG_pureplate_sandstone_upholstery,53,"124,115,108",TG_UPHOLSTERY,TG upholstery
+Metal_Chrome_caec0045,52,"0,0,0",TG_CHROME,name: chrome/steel
+TG_artis_strength_sandstone_plastic_1,52,"148,140,130",TG_SAND_PLASTIC,TG plastic
+TG_skill_sandstone_plastic_1,50,"148,140,130",TG_SAND_PLASTIC,TG plastic
+a01d474b_e5ab_437b_9040_effa9736ca93,48,"25,25,25",TG_PLASTIC_DARK_GREY,colour: neutral grey
+material__3_aee9efb6,48,"193,171,19",TG_YELLOW,colour: accent
+M_3e6b9dab_b324_4182_8983_9e6780de9588,48,"138,138,138",TG_PLASTIC_MID_GREY,colour: neutral grey
+material__10_aee9efb6,48,"48,48,48",TG_PLASTIC_DARK_GREY,colour: neutral grey
+f24fed99_4344_4be7_8d27_04bf68c11657,47,"50,255,0",TG_GREEN,colour: accent
+TG_red_button,47,"206,0,0",TG_RED,TG red button
+New_Disk_Grey_310e94be,42,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+TG_biostrength_sandstone_upholstery,42,"124,115,108",TG_UPHOLSTERY,TG upholstery
+reformer_leva_gi_9ea055fa,42,"224,223,75",TG_YELLOW,colour: accent
+reformer_spring_9ea055fa,42,"210,210,210",TG_CHROME,name: chrome/steel
+TG_skill_sandstone_logo,42,"255,255,255",TG_LOGO_WHITE,TG logo/sticker
+TG_disks_handle,41,"127,127,127",TG_METAL_SATIN,TG satin metal
+_A1,38,"180,180,180",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+acad11b286c2,37,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+TG_free_weights_sandstone_upholstery,37,"124,115,108",TG_UPHOLSTERY,TG upholstery
+TG_Tools_d9ef82fd,36,"207,207,207",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+_auto_36,36,"128,128,128",TG_PLASTIC_MID_GREY,colour: neutral grey
+TG_biostrength_sandstone_inlay,36,"160,152,140",TG_SAND_FRAME,TG frame
+_auto_30,35,"255,0,0",TG_RED,colour: accent
+M_22ec2aa4_0d48_4250_8edf_1076ff23eab0,34,"0,0,255",TG_BLUE,colour: accent
+new1314a0ff,34,"66,66,66",TG_PLASTIC_MID_GREY,colour: neutral grey
+TG_skill_anthracitesilver_logo,32,"255,255,255",TG_LOGO_WHITE,finish->sandstone; TG logo/sticker
+Logo_Y_5e9018f2,32,"191,191,94",TG_LOGO_GOLD,name: logo/sticker
+TG_free_weights_sandstone_frame_fitness,31,"160,152,140",TG_SAND_FRAME,TG frame
+M_546a2d4c_1835_4d4a_b196_674703617972,29,"229,232,99",TG_YELLOW,colour: accent
+TG_free_weights_diamondblack_upholstery,29,"124,115,108",TG_UPHOLSTERY,finish->sandstone; TG upholstery
+cb989932c217d9b8,28,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+Material__28_d9ef82fd,28,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+a1c64030_4041_4a64_b810_2502a613a4da,28,"174,162,150",TG_SAND_PLASTIC,colour: sandstone-like
+e940deca_d32f_4b9d_9280_fe567afb5b25,27,"71,67,60",TG_PLASTIC_MID_GREY,colour: neutral grey
+a5b65a8e_9bce_4097_8036_a096a559bd19,27,"147,147,147",TG_PLASTIC_MID_GREY,colour: neutral grey
+TG_artis_cardio_sandstone_metal_2,27,"184,184,184",TG_METAL_SATIN,TG metal (neutral grey)
+TG_artis_strength_sandstone_upholstery,27,"124,115,108",TG_UPHOLSTERY,TG upholstery
+M_7a9083f3a55821e6,26,"34,34,34",TG_PLASTIC_DARK_GREY,colour: neutral grey
+f98c65787f042e5d,26,"24,24,24",TG_PLASTIC_DARK_GREY,colour: neutral grey
+ab9c60458b683429,26,"26,26,26",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_369eaa1dd309a7f7,26,"25,25,25",TG_PLASTIC_DARK_GREY,colour: neutral grey
+black_matte_plas_8404ea95,26,"34,34,34",TG_PLASTIC_DARK_GREY,colour: neutral grey
+newfd8db942,25,"66,66,66",TG_PLASTIC_MID_GREY,colour: neutral grey
+TG_artis_cardio_sandstone_metal_1,24,"136,126,120",TG_SAND_FRAME,TG frame
+_auto_33,24,"255,255,0",TG_YELLOW,colour: accent
+M_7a21647a_ff14_42fb_9499_e11c0e1d9461,24,"9,9,9",TG_BLACK_PLASTIC,colour: neutral grey
+Material__33_d9ef82fd,24,"15,15,15",TG_BLACK_PLASTIC,colour: neutral grey
+M_4b05999d_4d22_47db_b19c_8113f25f28e5,24,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+_auto_37,24,"0,127,63",TG_GREEN,colour: accent
+material__8_aee9efb6,24,"236,236,236",TG_WHITE,colour: neutral grey
+material__9_aee9efb6,24,"86,86,87",TG_PLASTIC_MID_GREY,colour: neutral grey
+material__7_aee9efb6,24,"90,85,83",TG_PLASTIC_MID_GREY,colour: neutral grey
+material__19_aee9efb6,24,"248,248,248",TG_WHITE,colour: neutral grey
+material__13_aee9efb6,24,"89,89,89",TG_PLASTIC_MID_GREY,colour: neutral grey
+material__14_aee9efb6,24,"40,40,40",TG_PLASTIC_DARK_GREY,colour: neutral grey
+_auto_35,23,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_free_weights_diamondblack_frame_fitness,23,"160,152,140",TG_SAND_FRAME,finish->sandstone; TG frame
+Plastic_Sel_Grey_caec0045,22,"102,102,102",TG_PLASTIC_MID_GREY,colour: neutral grey
+TG_skill_anthracitesilver_frame,22,"160,152,140",TG_SAND_FRAME,finish->sandstone; TG frame
+e03b7f63_655b_4b5a_8015_602137e28e52,22,"253,241,102",TG_YELLOW,colour: accent
+acad4e4adf60,22,"125,117,109",TG_SAND_PLASTIC,colour: sandstone-like
+SKP__Color_M02__d313f266,21,"198,198,198",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+vray_COL5_9ea055fa,21,"19,19,19",TG_PLASTIC_DARK_GREY,colour: neutral grey
+reformer_matte_m_9ea055fa,21,"234,234,234",TG_WHITE,colour: neutral grey
+M_19141bcd_c95e_4645_a09f_cf129239b0e3,20,"136,126,120",TG_SAND_PLASTIC,colour: sandstone-like
+fd06a5e3_6d79_48a1_a642_aae671f16938,20,"255,255,255",TG_WHITE,colour: neutral grey
+TG_free_weights_sandstone_logo,19,"255,255,255",TG_LOGO_WHITE,TG logo/sticker
+Met11_caec0045,18,"188,188,188",TG_CHROME,name: chrome/steel
+TG_artis_strength_sandstone_camme,18,"63,63,63",TG_SAND_PLASTIC_DARK,TG frame
+M_10a9fd4cc3cd3cdc,18,"28,28,28",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_6f49ceda4ded53f2,18,"17,17,17",TG_BLACK_PLASTIC,colour: neutral grey
+M_4dbad7a478ae6bd1,18,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+c4759086235fa196,18,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+a92ccee82c54d5cd,18,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+bf199cd1eaed4d93,18,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+Material__65_d9ef82fd,18,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+ElasticoV_a863cd2,17,"20,20,20",TG_RUBBER,name: rubber
+new4d2f1a82,16,"68,69,70",TG_PLASTIC_MID_GREY,colour: neutral grey
+Black_plastic_2ec29d1d,16,"21,21,21",TG_PLASTIC_DARK_GREY,colour: neutral grey
+_auto_38,16,"0,153,204",TG_BLUE,colour: accent
+M_731ccdf6_9c79_4b09_9f86_3a53356f245e,15,"145,135,129",TG_SAND_PLASTIC,colour: sandstone-like
+M_36b9b5f5_4cbd_47e3_b377_1f7aa1ed9d60,15,"255,255,255",TG_WHITE,colour: neutral grey
+logo5e8ea18a,15,"0,0,0",TG_LOGO_DARK,name: logo/sticker
+Logo_TG_9ea055fa,14,"138,138,138",TG_LOGO_WHITE,name: logo/sticker
+_auto_71,14,"0,175,80",TG_GREEN,colour: accent
+Material__40_d9ef82fd,13,"78,78,78",TG_PLASTIC_MID_GREY,colour: neutral grey
+Material__34_d9ef82fd,13,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+Material__25_d9ef82fd,13,"78,78,78",TG_PLASTIC_MID_GREY,colour: neutral grey
+M_7987522d_9bcf_4847_a119_3526b1fe3d1e,13,"51,45,42",TG_PLASTIC_DARK_GREY,colour: neutral grey
+b432d584_e0ef_4f81_b801_2000f4cb15e5,13,"190,174,58",TG_YELLOW,colour: accent
+new_disk_c4c6ed7b,13,"68,69,70",TG_PLASTIC_MID_GREY,colour: neutral grey
+M_75efdaa0e89c3af,12,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+Material__32_d9ef82fd,12,"69,69,69",TG_PLASTIC_MID_GREY,colour: neutral grey
+Material__381_d9ef82fd,12,"23,23,23",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Material__41_d9ef82fd,12,"9,9,9",TG_BLACK_PLASTIC,colour: neutral grey
+Material__36_d9ef82fd,12,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_7bb94fc0_a883_4141_8878_b7cbe6001519,12,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+M_59376bdc_8aac_496c_b8a3_0a454f10035d,12,"39,39,39",TG_PLASTIC_DARK_GREY,colour: neutral grey
+ad3170b8_6741_48c5_8bd6_82e1bec33783,11,"60,214,0",TG_GREEN,colour: accent
+e5e4edad_8b09_481a_af53_6cf37e6ba7ff,11,"39,38,38",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_skill_sandstone_inlay,10,"160,152,140",TG_SAND_FRAME,TG frame
+sticker_allert_4010cf9e,10,"208,200,127",TG_LOGO_GOLD,name: logo/sticker
+TG_artis_cardio_sandstone_upholstery,9,"124,115,108",TG_UPHOLSTERY,TG upholstery
+RubBlk_9bbcdf1e,9,"0,0,0",TG_RUBBER,name: rubber
+CrOp_9bbcdf1e,9,"216,216,216",TG_CHROME,name: chrome/steel
+TG_free_weights_diamondblack_logo,9,"255,255,255",TG_LOGO_WHITE,finish->sandstone; TG logo/sticker
+TG_skill_anthracitesilver_inlay,9,"160,152,140",TG_SAND_FRAME,finish->sandstone; TG frame
+acad2acc470f,9,"255,255,255",TG_WHITE,colour: neutral grey
+M_8ca52bff_6208_4ff1_a8dd_0c1d217fb637,9,"63,63,63",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_2648f8ab_0c32_49ee_a8ad_6bbf17baf6a3,9,"148,140,130",TG_SAND_PLASTIC,colour: sandstone-like
+logotecheeefa9a5,8,"0,0,0",TG_LOGO_DARK,name: logo/sticker
+acad6fa5293a,8,"148,140,130",TG_SAND_PLASTIC,colour: sandstone-like
+new5806c075,8,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+stainless_steel_d81abc68,8,"174,174,174",TG_CHROME,name: chrome/steel
+Black_plastic_8404ea95,8,"21,21,21",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Technogym_Logo_y_2ec29d1d,8,"185,168,57",TG_LOGO_GOLD,name: logo/sticker
+M_38522eb0_61ce_48e2_8bd9_fdc780dc0340,8,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+M_081618ef_70f8_479f_b984_ce3f47b23db6,8,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+fa8493ac_89a4_41fe_86a4_ab5444360431,8,"20,20,20",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Matal_Black_Luci_9900aff6,8,"4,4,4",TG_BLACK_GLOSS,name: black metal
+M_24b7c8f0_63f3_4f90_9b93_4c2105ac6195,8,"70,65,63",TG_PLASTIC_MID_GREY,colour: neutral grey
+M_4c7c99cb_db49_4cfc_a92b_ff16158a9a69,8,"20,20,20",TG_PLASTIC_DARK_GREY,colour: neutral grey
+TG_cablestations_sandstone_upholstery,8,"124,115,108",TG_UPHOLSTERY,TG upholstery
+acad82c2df9e,8,"229,232,99",TG_YELLOW,colour: accent
+acadf1ef9b62,7,"136,126,120",TG_SAND_PLASTIC,colour: sandstone-like
+TG_artis_strength_sandstone_inlay,7,"160,152,140",TG_SAND_FRAME,TG frame
+M_0f0516ff_ad59_4179_9806_7fedcb065efb,7,"84,80,80",TG_PLASTIC_MID_GREY,colour: neutral grey
+Material__47_d9ef82fd,7,"14,13,14",TG_BLACK_PLASTIC,colour: neutral grey
+Material__46_d9ef82fd,7,"14,13,14",TG_BLACK_PLASTIC,colour: neutral grey
+Material__35_d9ef82fd,7,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_0253e69a_2f48_491a_aead_1bbec1a791d6,7,"29,31,32",TG_PLASTIC_DARK_GREY,colour: neutral grey
+_auto_40,7,"91,91,91",TG_PLASTIC_MID_GREY,colour: neutral grey
+_auto_58,7,"127,111,63",TG_YELLOW,colour: accent
+VRayMtl_24_9ea055fa,7,"222,222,222",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+M_1b979956_449d_4706_8aa1_bbb924dbe58e,7,"136,126,120",TG_SAND_PLASTIC,colour: sandstone-like
+acadb2cc8abc,7,"0,0,255",TG_BLUE,colour: accent
+a3a43dc2_973b_4f02_a25b_ffdbf02d9fe9,7,"68,69,70",TG_PLASTIC_MID_GREY,colour: neutral grey
+Material__5_ae9a7e4e,7,"242,242,242",TG_WHITE,colour: neutral grey
+Yellow_caec0045,6,"253,255,78",TG_YELLOW,colour: accent
+Material__62_d9ef82fd,6,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+Material__63_d9ef82fd,6,"97,95,95",TG_PLASTIC_MID_GREY,colour: neutral grey
+Material__44_d9ef82fd,6,"22,20,21",TG_PLASTIC_DARK_GREY,colour: neutral grey
+GrRvRg_b0859e3b,6,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_3c1a76b0_117c_4f27_8297_42df649392ca,6,"48,47,47",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Material__8_b0859e3b,6,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_266c91fa_75a7_4c78_8528_b2b95836613b,6,"51,60,82",TG_BLUE,colour: accent
+_auto_41,6,"154,215,229",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+acadfa1a542f,6,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_6a1532ef_fa84_4f32_a543_cfa6d0496e14,6,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+M_9ab35770_1ef1_4191_bf53_474968811275,6,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+_auto_31,6,"0,255,64",TG_GREEN,colour: accent
+_auto_56,6,"0,255,63",TG_GREEN,colour: accent
+TG_skill_sandstone_frame_2,6,"160,152,140",TG_SAND_FRAME,TG frame
+TG_cablestations_stickers_tower,6,"28,28,28",TG_LOGO_DARK,TG logo/sticker
+TG_skill_anthracitesilver_frame_2,5,"160,152,140",TG_SAND_FRAME,finish->sandstone; TG frame
+M_4bbb9b5a_ff52_4026_96d0_9e3e568a2523,5,"70,70,70",TG_PLASTIC_MID_GREY,colour: neutral grey
+M_9e5312c3_8d10_442c_8b6e_465c04bd1ca8,5,"43,43,43",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_7d8c64f2_b5a1_4438_a093_ea9ab28cdace,5,"190,174,58",TG_YELLOW,colour: accent
+M_017cd0d2_d976_48d1_ae28_61b3f3f66f2a,5,"80,80,80",TG_PLASTIC_MID_GREY,colour: neutral grey
+dab6a062_1aed_476a_b212_291b8ebc51b7,5,"78,78,78",TG_PLASTIC_MID_GREY,colour: neutral grey
+_auto_70,5,"76,76,76",TG_PLASTIC_MID_GREY,colour: neutral grey
+c37b270e_b4c1_444f_b9cb_094f9408248f,5,"48,48,48",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_67aa027d_3f6d_4ee6_bd4e_d8841fae27de,5,"148,148,148",TG_PLASTIC_MID_GREY,colour: neutral grey
+e1cceac4_16e5_45e5_94af_c682a8194f6b,5,"37,37,37",TG_PLASTIC_DARK_GREY,colour: neutral grey
+_auto_12,5,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_96535b97_ba07_423d_8aa8_8109c08aff27,5,"115,113,113",TG_PLASTIC_MID_GREY,colour: neutral grey
+M_17___Default_2f63b3e7,4,"254,223,50",TG_YELLOW,colour: accent
+Melal_op_2f63b3e7,4,"128,128,128",TG_CHROME,name: chrome/steel
+Gray_Light_2f63b3e7,4,"15,15,15",TG_BLACK_PLASTIC,colour: neutral grey
+M_17___Default1_69071668,4,"254,223,50",TG_YELLOW,colour: accent
+Gray_Metal_2f63b3e7,4,"15,15,15",TG_CHROME,name: metal
+Gray_Metal_69071668,4,"15,15,15",TG_CHROME,name: metal
+EleClassic_Metal_caec0045,4,"230,225,223",TG_CHROME,name: chrome/steel
+Numeri_caec0045,4,"0,0,0",TG_LOGO_DARK,name: logo/sticker
+yellow_handle_2ec29d1d,4,"253,241,102",TG_YELLOW,colour: accent
+b3315ff3_97b9_4cea_a2b8_3ea8d9892110,4,"255,255,255",TG_WHITE,colour: neutral grey
+a5b53a8ecaec9b39,4,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+baeeb1b6dfe3bb22,4,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+a40d59ee6419e38b,4,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+QR_Skillup_2f3cf758,4,"99,99,97",TG_LOGO_WHITE,name: logo/sticker
+Material__10_2f3cf758,4,"12,10,11",TG_BLACK_PLASTIC,colour: neutral grey
+rough_platform_Skillup_2f3cf758,4,"5,5,5",TG_BLACK_PLASTIC,colour: neutral grey
+e9cf6fa7_e751_44fc_aa87_9cb71b0fdce0,4,"42,42,40",TG_PLASTIC_DARK_GREY,colour: neutral grey
+acad535f9a83,4,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_109de3993e395e24,4,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_833bd34f_4972_4a27_89a5_b9f1dbb39fab,4,"190,174,58",TG_YELLOW,colour: accent
+acadc332563f,4,"137,127,123",TG_SAND_PLASTIC,colour: sandstone-like
+M_8070e003_7ba9_4de4_8426_4930684762d4,4,"136,126,120",TG_SAND_PLASTIC,colour: sandstone-like
+sticker_allert_5353d136,4,"208,200,127",TG_LOGO_GOLD,name: logo/sticker
+M_1e04903b_d8dc_4708_b7ff_b3daf20ddf42,4,"178,178,178",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+TG_cablestations_logo,4,"255,255,255",TG_LOGO_WHITE,TG logo/sticker
+acadbaf342e,3,"198,198,198",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+acad5104da91,3,"160,152,140",TG_SAND_PLASTIC,colour: sandstone-like
+dap04c874907d37d,2,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+dap02da95021d023,2,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+dap019d36c95a57d,2,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+Metal_Sel_Black_caec0045,2,"12,12,12",TG_BLACK_GLOSS,name: black metal
+dap031dbb83baf83,2,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+acadfdf636a2,2,"124,115,108",TG_SAND_PLASTIC,colour: sandstone-like
+M_10Front_9bbcdf1e,2,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back3_9bbcdf1e,2,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+gomma_pedana_hal_2ec29d1d,2,"21,21,21",TG_RUBBER,name: rubber
+acadf5eddd87,2,"25,25,25",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_7a2e7780_2333_42be_b244_62c5c74920b7,2,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+M_64027f07_913b_4bf6_944c_f6cff961af37,2,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+ac69ef95_8f88_4784_8508_beed2c0251aa,2,"191,191,191",TG_PLASTIC_LIGHT_GREY,colour: neutral grey
+M_96023fdacc3520e6,2,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+d179deba_eace_4e8b_a662_39ea8b9fa746,2,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+acad994ac196,2,"136,125,121",TG_SAND_PLASTIC,colour: sandstone-like
+acadc903bd44,2,"139,129,125",TG_SAND_PLASTIC,colour: sandstone-like
+acad41f9b7a0,2,"136,126,121",TG_SAND_PLASTIC,colour: sandstone-like
+black_shiny_rubb_c8e5a3a9,2,"33,33,33",TG_RUBBER,name: rubber
+M_36c9a9f1_862c_48c0_bf1d_6f9f81cab0ac,2,"47,47,47",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_55e117d3_c78f_4b45_b79e_fb4b2bcf48b6,2,"59,59,60",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_363f822a_2cc5_4643_99cc_d51dc0698c3e,2,"190,174,58",TG_YELLOW,colour: accent
+M_1bcffbe8_bcd9_425f_8bb4_41ecbbcb01da,2,"32,25,28",TG_PLASTIC_DARK_GREY,colour: neutral grey
+acad6d18e517,2,"255,0,0",TG_RED,colour: accent
+acad629239eb,2,"50,255,0",TG_GREEN,colour: accent
+acad4432e00a,2,"136,126,122",TG_SAND_PLASTIC,colour: sandstone-like
+acad6576d67f,2,"139,129,125",TG_SAND_PLASTIC,colour: sandstone-like
+acad6c5c7cec,2,"139,129,125",TG_SAND_PLASTIC,colour: sandstone-like
+acade65705bd,2,"138,128,124",TG_SAND_PLASTIC,colour: sandstone-like
+acad25143a27,2,"137,127,123",TG_SAND_PLASTIC,colour: sandstone-like
+acad27610c2b,2,"136,126,122",TG_SAND_PLASTIC,colour: sandstone-like
+standing_abducto_7efeee9b,2,"40,39,39",TG_PLASTIC_DARK_GREY,colour: neutral grey
+hip_thrust_s_3756a922,2,"38,37,37",TG_PLASTIC_DARK_GREY,colour: neutral grey
+afad7143_d39b_49de_a246_b89e8e28bc5a,2,"36,37,38",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Material__1_5353d136,2,"31,30,30",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Movimento_p100V_a863cd2,2,"235,228,85",TG_YELLOW,colour: accent
+acade2deaada,1,"160,152,140",TG_SAND_PLASTIC,colour: sandstone-like
+M_0c06f4fb74067ffe,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_705f362def689135,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+ee6be46e5b751711,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_2e6d56fb14e1e422,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+d3b69c1e55194d9a,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_8d9cfd0cadf8d27e,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+ef1396ce69a9d996,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_16Front_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_6Front_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back1_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back5_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back6_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_12Front_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back2_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_20Front_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_4Front_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back7_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Back4_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_8Front_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_24Front_9bbcdf1e,1,"51,51,51",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Grainy_steel_met_8404ea95,1,"180,180,180",TG_CHROME,name: chrome/steel
+anterioreb1e9e39,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+posterioa9a49298,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+acada355b195,1,"137,126,122",TG_SAND_PLASTIC,colour: sandstone-like
+acad9e27556a,1,"137,126,122",TG_SAND_PLASTIC,colour: sandstone-like
+M_526132f7_ab77_4e72_bfad_530428701790,1,"160,152,140",TG_SAND_PLASTIC,colour: sandstone-like
+M_8d010c8a_0db4_4d63_a91a_cf2ba4c80b64,1,"148,140,130",TG_SAND_PLASTIC,colour: sandstone-like
+e7082616_7461_4df6_aeeb_fcd265864ab6,1,"233,233,233",TG_WHITE,colour: neutral grey
+M_1cafd8f9_7f97_4b0e_bf94_f0e4b912d57b,1,"121,107,107",TG_SAND_PLASTIC,colour: sandstone-like
+TG_logo_yellow,1,"190,174,58",TG_LOGO_GOLD,TG logo/sticker
+M_387e55fd_b4e7_49f6_bdc1_c40de45e2a14,1,"180,162,142",TG_SAND_PLASTIC,colour: sandstone-like
+seated_calf_s_10ec1d90,1,"38,38,37",TG_UPHOLSTERY_DARK,name: upholstery
+hack_squat_s_c4c6ed7b,1,"34,33,32",TG_PLASTIC_DARK_GREY,colour: neutral grey
+c3fcc900_4b86_4ff9_bbb4_0f7e6b7423df,1,"37,37,36",TG_PLASTIC_DARK_GREY,colour: neutral grey
+Gomma_Nera_310e94be,1,"14,14,14",TG_RUBBER,name: rubber
+lwbk0175ec0bd53,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+material__022_5a32576f,1,"0,0,0",TG_BLACK_PLASTIC,colour: neutral grey
+M_3eda5eaca21588a7,1,"62,58,52",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_13a778aa_1efb_4ee4_99c8_cdab4138ea34,1,"46,46,46",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_742353c9_899a_40ae_89dd_9cac47d2f300,1,"48,48,47",TG_PLASTIC_DARK_GREY,colour: neutral grey
+M_15193ab1_a050_4f35_aa8f_f4a13c42de43,1,"55,52,52",TG_PLASTIC_DARK_GREY,colour: neutral grey

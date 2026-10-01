@@ -1,0 +1,23 @@
+material,based_on_reference,diffuse_rgb,glossiness,ior
+TG_SAND_FRAME,Material #899,"140,127,113",0.68,1.8
+TG_SAND_PLASTIC,Material #2147464532,reference,reference,reference
+TG_SAND_PLASTIC_DARK,Material #908,reference,reference,reference
+TG_UPHOLSTERY,Material #4,"124,115,108",reference,reference
+TG_UPHOLSTERY_DARK,Material #4,"38,38,37",reference,reference
+TG_BELT,Material #978,"46,46,46",reference,reference
+TG_LOGO_WHITE,Material #2,"245,245,245",reference,reference
+TG_LOGO_GOLD,Material #2,"190,174,58",reference,reference
+TG_LOGO_DARK,Material #2,"25,25,25",reference,reference
+TG_BLACK_PLASTIC,Material #902,reference,reference,reference
+TG_BLACK_GLOSS,Material #901,reference,reference,reference
+TG_CHROME,Material #29,reference,reference,reference
+TG_METAL_SATIN,Material #974,"185,185,185",reference,reference
+TG_RUBBER,Material #10911,"20,20,20",reference,reference
+TG_PLASTIC_DARK_GREY,Material #975,"42,42,42",reference,reference
+TG_PLASTIC_MID_GREY,Material #975,"90,90,90",reference,reference
+TG_PLASTIC_LIGHT_GREY,Material #975,"196,196,196",reference,reference
+TG_WHITE,Material #976,"245,245,245",reference,reference
+TG_YELLOW,Material #903,"230,215,80",reference,reference
+TG_RED,Material #977,"200,10,10",reference,reference
+TG_GREEN,Material #975,"30,170,60",reference,reference
+TG_BLUE,Material #975,"20,90,200",reference,reference
