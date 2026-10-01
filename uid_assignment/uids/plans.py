@@ -120,6 +120,57 @@ def floor_plan_db(ac, show=False):
     raise ArchicadError("the project has no story in its Project Map")
 
 
+def _story_items(ac):
+    """{floor index: Project Map story item}."""
+    tree = ac.api("API.GetNavigatorItemTree", {"navigatorTreeId": {"type": "ProjectMap"}})
+    out, stack = {}, [tree["navigatorTree"]["rootItem"]]
+    while stack:
+        it = stack.pop()
+        it = it.get("navigatorItem", it)
+        if it.get("type") == "StoryItem":
+            try:
+                out[int(str(it.get("prefix", "")).strip().rstrip("."))] = it
+            except ValueError:
+                pass
+        stack += it.get("children", [])
+    return out
+
+
+def id_views(ac, floors, folder_name):
+    """A View Map folder `folder_name` with a view of every story that has windows, shown through the layer
+    combination of the same name - the plans to place on the layouts for the window marks (a view of the View Map
+    shows the layers of its own combination, so the views the project already has keep theirs and show no IDs unless
+    the designer ticks the layer there). Made once, like the combination; returns the views' names."""
+    tree = ac.api("API.GetNavigatorItemTree", {"navigatorTreeId": {"type": "ViewMap"}})
+    stack = [tree["navigatorTree"]["rootItem"]]
+    while stack:
+        it = stack.pop()
+        it = it.get("navigatorItem", it)
+        if it.get("type") == "FolderItem" and it.get("name", "").strip() == folder_name:
+            return []
+        stack += it.get("children", [])
+    items = _story_items(ac)
+    floors = [f for f in sorted(floors) if f in items]
+    if not floors:
+        return []
+    folder = ac.tapir("CreateViewMapFolder", {"folderName": folder_name})["navigatorItemId"]
+    made = ac.tapir("CloneProjectMapItemToViewMap", {"viewsData": [
+        {"navigatorItemId": items[f]["navigatorItemId"], "parentNavigatorItemId": folder} for f in floors]})
+    names = []
+    for f, m in zip(floors, made.get("navigatorItems", [])):
+        if "navigatorItemId" not in m:
+            warn(f"plans: no view of the story {f} in '{folder_name}' ({m.get('error', m)})")
+            continue
+        view = m["navigatorItemId"]
+        name = f"{items[f].get('name', '').strip() or 'Story'} - Window IDs"
+        ac.tapir("SetViewSettings", {"navigatorItemIdsWithViewSettings": [
+            {"navigatorItemId": view, "viewSettings": {"layerCombination": folder_name}}]})
+        ac.tapir("RenameNavigatorItem", {"navigatorItemId": view, "newName": name})
+        names.append(f"{items[f].get('prefix', '')} {name}")
+    log(f"plans: View Map folder '{folder_name}' made: {', '.join(names)} (layer combination '{folder_name}')")
+    return names
+
+
 def element_id_autotext(ac):
     """The autotext that shows an element's Element ID in a label: <PROPERTY-guid> of the built-in property
     General_ElementID (the same key in every language version of Archicad)."""

@@ -8,6 +8,9 @@ copy:
                                          the types
   layer combination 'Window IDs - Floor Plans'   (made once) the layers as they are, with the IDs and every
                                                  window shown
+  View Map folder 'Window IDs - Floor Plans'     (made once) a view of every story with windows, shown through
+                                                 that combination - the views of the project keep their own
+                                                 combinations, which do not show the IDs
 """
 from . import layers, plans, sheet
 from .archicad import ArchicadError
@@ -31,6 +34,11 @@ def annotate(ac, types, stories, cfg, draw=True):
             layers.own_combination(ac, own, {out["id_layer"], layers.name(cfg, "types")} | {w.layer for w in windows})
         except ArchicadError as e:
             warn(f"layers: the layer combination '{own}' could not be made ({e})")
+        else:
+            try:  # the stories' plans through that combination, in a View Map folder of the same name
+                plans.id_views(ac, {w.floor for w in windows}, own)
+            except ArchicadError as e:
+                warn(f"plans: the View Map views '{own}' could not be made ({e})")
     if draw:
         out["sheet"], out["types_layer"] = sheet.place(ac, out["drawing"], cfg)
     return out

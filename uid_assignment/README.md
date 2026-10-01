@@ -36,7 +36,13 @@ not show it. When the tool first makes its layers, it therefore shows:
 - and it makes the combination **Window IDs - Floor Plans**: the layers as they were, with the windows and their
   labels shown.
 
-After that, the combinations are yours to change.
+It also adds the View Map folder **Window IDs - Floor Plans**, with a view of every story that has windows (for example
+«0. Ground Floor - Window IDs»). These views use that combination, so they show the IDs; place them on your layouts.
+Your own views, like «0. Ground Floor», keep their own combination. That combination usually hides the IDs layer, so
+to see the IDs there too, tick the layer in it or switch the view to **Window IDs - Floor Plans**.
+
+After that, the combinations and views are yours to change. They are made only once, so a later run leaves them as
+they are.
 
 How windows are typed and numbered:
 - **Type** = same library part + same width × height (to the mm) + same panes, transom, glazing bars and frame.
