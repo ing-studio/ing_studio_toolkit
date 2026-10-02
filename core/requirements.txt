@@ -1,0 +1,10 @@
+# The toolkit's Python packages (Python 3.12, Windows), installed by core\setup_env.ps1. Pinned: an update is a
+# deliberate change, tested with test.bat.
+numpy==2.3.3
+scipy==1.16.2
+shapely==2.1.2
+ezdxf==1.4.4
+matplotlib==3.10.6
+pymupdf==1.28.2
+# GDAL has no official Windows wheel: the build of the geospatial-wheels project
+gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2026.8.20/gdal-3.13.3-cp312-cp312-win_amd64.whl

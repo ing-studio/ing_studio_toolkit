@@ -1,12 +1,49 @@
-__pycache__/
-*.pyc
-.vscode/
-.idea/
-Thumbs.db
+# The toolkit tracks code and its documentation, never project data: drawings, point clouds, models and results stay
+# on the machine or the shared drive (GitHub refuses files over 100 MB).
 
-# 3D models and scenes - too big for git (GitHub refuses files over 100 MB): keep them on the shared drive
+# --- the root holds only the toolkit's own entries; any other folder put here (a project, a download) is ignored
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/pyproject.toml
+!/install.bat
+!/uninstall.bat
+!/test.bat
+!/core/
+!/docs/
+!/tools/
+
+# --- every tool: its input and output folders keep only their README; config/project.json is per machine
+/tools/*/input/*
+!/tools/*/input/README.md
+/tools/*/output/*
+!/tools/*/output/README.md
+/tools/*/config/project.json
+
+# --- data files, wherever they are
+*.pln
+*.pla
+*.bpn
+*.lck
+*.dwg
+*.dxf
+*.dwl*
+*.bak
+*.e57
+*.las
+*.laz
 *.max
 *.fbx
 *.skp
 *.3ds
 *.obj
+*.rar
+
+# --- Python, editors, Windows
+__pycache__/
+*.pyc
+.ruff_cache/
+.vscode/
+.idea/
+Thumbs.db

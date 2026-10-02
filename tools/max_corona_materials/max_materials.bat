@@ -1,0 +1,10 @@
+@echo off
+REM 3ds Max model -> clean Corona part materials.   max_materials.bat   or   max_materials.bat map   (max_materials.bat --help)
+REM Without options (a double-click): the reference scene and the model in input\, results in output\.
+REM Python: the toolkit's (install.bat); 3ds Max with Corona does the 3D work, without its window.
+setlocal
+set "TOOL_DIR=%~dp0."
+set "TOOL_MODULE=maxmat.cli"
+set "TOOL_PYTHON="
+call "%~dp0..\..\core\run.cmd" %*
+exit /b %ERRORLEVEL%

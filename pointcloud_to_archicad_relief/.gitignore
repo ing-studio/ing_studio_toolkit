@@ -1,7 +1,0 @@
-# machine- and project-specific settings, results of runs started in this folder
-config/project.json
-output/
-*_ReliefOnly*
-# Python
-__pycache__/
-*.pyc

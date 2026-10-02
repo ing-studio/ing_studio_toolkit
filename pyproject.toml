@@ -1,0 +1,14 @@
+# Code checks of the toolkit (no package is built from it: the tools run from their folders, see README.md).
+# Check with:  ruff check .   It looks for errors (undefined or unused names, syntax), not for style.
+[tool.ruff]
+line-length = 120
+target-version = "py312"  # the toolkit's Python (core\requirements.txt)
+extend-exclude = ["tools/*/input", "tools/*/output"]
+
+[tool.ruff.per-file-target-version]
+# the palette buttons and uid_assignment run in Tapir's own Python, which may be 3.10
+"tools/*/addon/*.py" = "py310"
+"tools/uid_assignment/**/*.py" = "py310"
+
+[tool.ruff.lint]
+select = ["E9", "F"]

@@ -1,0 +1,51 @@
+{
+  "_about": "Settings of max_corona_materials. Put your own values in config/project.json (same layout, only the keys you change); --set KEY=VALUE changes one for a run.",
+
+  "paths": {
+    "_reference": "the 3ds Max scene whose Corona materials are the templates; null = the one .max file in input\\",
+    "reference": null,
+    "_model": "the model to convert, an FBX (or an already imported .max); null = the one .fbx file in input\\",
+    "model": null,
+    "_model_materials": "the model's materials with their mesh counts and colours (JSON: [{name, meshes, rgb}]); null = input\\model_materials.json if it is there, else read from the imported model",
+    "model_materials": null,
+    "_output_dir": "where the results go; null = output, in the folder the command is run from",
+    "output_dir": null,
+    "_work_dir": "cache of intermediate results (the raw import, the material library, the maps; safe to delete); null = %LOCALAPPDATA%/ing_studio_toolkit/max_corona_materials",
+    "work_dir": null
+  },
+
+  "max": {
+    "_version": "the 3ds Max that does the work (needs Corona): auto = the newest installed, or a year like 2025",
+    "version": "auto",
+    "_model_root": "the node the FBX import puts every equipment group under (SketchUp: Model); missing = the scene's top-level nodes are the groups",
+    "model_root": "Model"
+  },
+
+  "parts": {
+    "_about": "the part materials: name -> [template material of the reference scene, diffuse [r, g, b] or null = the template's, glossiness or null, IOR or null]. Which model material becomes which part is decided by the rules in maxmat/parts.py",
+    "TG_SAND_FRAME": ["Material #899", [140, 127, 113], 0.68, 1.8],
+    "TG_SAND_PLASTIC": ["Material #2147464532", null, null, null],
+    "TG_SAND_PLASTIC_DARK": ["Material #908", null, null, null],
+    "TG_UPHOLSTERY": ["Material #4", [124, 115, 108], null, null],
+    "TG_UPHOLSTERY_DARK": ["Material #4", [38, 38, 37], null, null],
+    "TG_BELT": ["Material #978", [46, 46, 46], null, null],
+    "TG_LOGO_WHITE": ["Material #2", [245, 245, 245], null, null],
+    "TG_LOGO_GOLD": ["Material #2", [190, 174, 58], null, null],
+    "TG_LOGO_DARK": ["Material #2", [25, 25, 25], null, null],
+    "TG_BLACK_PLASTIC": ["Material #902", null, null, null],
+    "TG_BLACK_GLOSS": ["Material #901", null, null, null],
+    "TG_CHROME": ["Material #29", null, null, null],
+    "TG_METAL_SATIN": ["Material #974", [185, 185, 185], null, null],
+    "TG_RUBBER": ["Material #10911", [20, 20, 20], null, null],
+    "TG_PLASTIC_DARK_GREY": ["Material #975", [42, 42, 42], null, null],
+    "TG_PLASTIC_MID_GREY": ["Material #975", [90, 90, 90], null, null],
+    "TG_PLASTIC_LIGHT_GREY": ["Material #975", [196, 196, 196], null, null],
+    "TG_WHITE": ["Material #976", [245, 245, 245], null, null],
+    "TG_YELLOW": ["Material #903", [230, 215, 80], null, null],
+    "TG_RED": ["Material #977", [200, 10, 10], null, null],
+    "TG_GREEN": ["Material #975", [30, 170, 60], null, null],
+    "TG_BLUE": ["Material #975", [20, 90, 200], null, null]
+  },
+  "_fallback_part": "the part of a mesh whose material is in no map",
+  "fallback_part": "TG_PLASTIC_MID_GREY"
+}
