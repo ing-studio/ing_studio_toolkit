@@ -43,12 +43,12 @@ Run `install.bat` again after moving the toolkit folder.
 ## Use
 **In a terminal**, in any folder:
 ```
-dwg2ac.bat plan.dwg survey.e57
+site_model.bat plan.dwg survey.e57
 ```
-Optionally add the project PDF: `dwg2ac.bat plan.dwg survey.e57 --doc areas.pdf`. The results go to an `output`
+Optionally add the project PDF: `site_model.bat plan.dwg survey.e57 --doc areas.pdf`. The results go to an `output`
 folder where the command is run.
 
-**Double-click:** put the drawing, its point cloud and any PDFs in `input\`, double-click **`dwg2ac.bat`**, and find
+**Double-click:** put the drawing, its point cloud and any PDFs in `input\`, double-click **`site_model.bat`**, and find
 the results in `output\`.
 
 **In Archicad:** click **Site model from AutoCAD** in the Tapir palette, pick the drawing, the point cloud and
@@ -59,14 +59,14 @@ project is not touched.
 
 | command | what it does |
 |---|---|
-| `dwg2ac.bat DRAWING POINT_CLOUD [options]` | builds the site model (the same as `dwg2ac.bat run ...`) |
-| `dwg2ac.bat` | the same for the files in `input\`, with the results in `output\` |
-| `dwg2ac.bat clean DRAWING [--out DIR]` | deletes that drawing's results and cached steps, so the next run starts afresh |
-| `dwg2ac.bat stages` | lists the steps |
-| `dwg2ac.bat config [options]` | prints the settings a run would use |
-| `dwg2ac.bat addon install\|remove\|status` | the palette button and Tapir (`remove`: the button only) |
+| `site_model.bat DRAWING POINT_CLOUD [options]` | builds the site model (the same as `site_model.bat run ...`) |
+| `site_model.bat` | the same for the files in `input\`, with the results in `output\` |
+| `site_model.bat clean DRAWING [--out DIR]` | deletes that drawing's results and cached steps, so the next run starts afresh |
+| `site_model.bat stages` | lists the steps |
+| `site_model.bat config [options]` | prints the settings a run would use |
+| `site_model.bat addon install\|remove\|status` | the palette button and Tapir (`remove`: the button only) |
 
-`dwg2ac.bat --help` and `dwg2ac.bat run --help` show every option.
+`site_model.bat --help` and `site_model.bat run --help` show every option.
 
 ## Input
 Two files are all it needs:
@@ -143,7 +143,7 @@ Layer names only order the candidates and break ties, so a drawing with unusual 
 the command line (`--set`) or keep them in `config\project.json`.
 
 ## How it works
-`dwg2ac.bat stages` lists the steps. Finished steps are reused on the next run.
+`site_model.bat stages` lists the steps. Finished steps are reused on the next run.
 
 1. **read**: AutoCAD's console turns AutoCAD Architecture objects into plain AutoCAD objects and saves a DXF.
    - Blocks are exploded.
@@ -302,7 +302,7 @@ designers. With the PDF, it computes the programme's **parking demand** (ՀՀՇ�
 **density** (Table 8).
 
 ## Common changes
-Add these after the file names, for example `dwg2ac.bat plan.dwg survey.e57 --street-class district`.
+Add these after the file names, for example `site_model.bat plan.dwg survey.e57 --street-class district`.
 
 | I want… | add |
 |---|---|
@@ -326,7 +326,7 @@ Add these after the file names, for example `dwg2ac.bat plan.dwg survey.e57 --st
 | another part of the drawing | `--set drawing.region=[x1,y1,x2,y2]` (drawing units) |
 | the results somewhere else | `--out D:\results` |
 | to redo a step | `--only roads --force` (or `--from roads`) |
-| to start afresh (delete results and cache) | `dwg2ac.bat clean plan.dwg` |
+| to start afresh (delete results and cache) | `site_model.bat clean plan.dwg` |
 | thicker paving | `--set roads.profile.pavement_m=0.2` |
 | less of the drawing's paving built in 3D | `--set roads.profile.paving_reach_m=12 --set roads.profile.paving_max_cut_fill_m=0.5` |
 | sharper kerb corners at existing junctions | `--set roads.existing.kerb_return_m=3` |
@@ -351,7 +351,7 @@ run, use `--set KEY=VALUE` (see "Common changes").
 - **An element Archicad refused:** these are listed in `archicad_refused.json` in the cache folder. There are usually
   only a handful, and they are also counted in the report.
 - Intermediate files are kept in `%LOCALAPPDATA%\ing_studio_toolkit\autocad_to_archicad`. Deleting them is safe:
-  `dwg2ac.bat clean plan.dwg` removes a drawing's cache and its results (close the PLN in Archicad first).
+  `site_model.bat clean plan.dwg` removes a drawing's cache and its results (close the PLN in Archicad first).
 - The button says the tool is not found: the toolkit folder has moved. Run `install.bat` again.
 
 ## Known limits
@@ -379,10 +379,10 @@ for the other tools; the toolkit's own `uninstall.bat` removes everything.
 ## Files
 | path | what |
 |---|---|
-| `dwg2ac.bat` | the command |
+| `site_model.bat` | the command |
 | `install.bat`, `uninstall.bat` | install / uninstall (the toolkit's Python, the palette button) |
-| `addon\Site model from AutoCAD.py` | the palette button (it only starts `dwg2ac.bat`) |
-| `acad\` | the tool: `cli`, `pipeline` and its `stages\` (read, inventory, documents, georef, layers, terrain, buildings, roads, earthworks, context, archicad, report), `roads\` (the street network, profiles and norms), `geometry\`, `io\` (DWG/DXF, PDF, OpenStreetMap, the world terrain model), `site_writer` (the site elements in Archicad). Archicad, logging, settings, rasters and the terrain mesh come from the toolkit's library (`core\ing_core`) |
+| `addon\Site model from AutoCAD.py` | the palette button (it only starts `site_model.bat`) |
+| `site_model\` | the tool: `cli`, `pipeline` and its `stages\` (read, inventory, documents, georef, layers, terrain, buildings, roads, earthworks, context, archicad, report), `roads\` (the street network, profiles and norms), `geometry\`, `io\` (DWG/DXF, PDF, OpenStreetMap, the world terrain model), `site_writer` (the site elements in Archicad). Archicad, logging, settings, rasters and the terrain mesh come from the toolkit's library (`core\ing_core`) |
 | `config\default.json` | the settings |
 | `input\`, `output\` | the files of a double-click run (not in git) |
 | `tests\` | `test.bat autocad_to_archicad` in the toolkit's folder: on synthetic data, no AutoCAD, Archicad or network needed |

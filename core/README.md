@@ -23,8 +23,9 @@ What every tool shares, so it exists once:
 | `geometry.terrain_mesh` | an adaptive terrain mesh from a raster |
 | `cli` | `python -m ing_core tapir install\|remove\|status` and `python -m ing_core test` (the root `install.bat`, `uninstall.bat`, `test.bat` use it) |
 
-`uid_assignment` keeps its own small Archicad client (`uids\archicad.py`): its palette button runs inside Tapir's
-Python, which has only the standard library. It uses `ing_core` only to install itself.
+`archicad_window_ids` keeps its own small Archicad client, logging and helper-Archicad code (`window_ids\archicad.py`,
+`util.py`, `session.py`): its palette button runs the whole `window_ids` package inside Tapir's Python, which has
+only the standard library. It uses `ing_core` only to install itself.
 
 ## Changing the library
 Every tool depends on it: run `test.bat` (all suites) after a change, not only the suite of the tool you work on.

@@ -1,14 +1,14 @@
 -- Step "rebuild": the imported model rebuilt as clean parts:
 --   one Max group per equipment, one Editable Mesh per part material inside it,
 --   one Corona material per part type, one layer per part type, duplicate (overlapping) meshes removed.
--- Run by max_materials.bat, which defines:
+-- Run by corona_materials.bat, which defines:
 --   ING_WORK         the work folder: reference.mat, part_materials.tsv, part_map.tsv; the logs and reports go here
 --   ING_RAW          the raw import (.max) of the model
 --   ING_OUT          the result to write (.max)
 --   ING_MODEL_ROOT   the node the equipment groups are under (missing: the scene's top-level nodes are the groups)
 --   ING_FALLBACK     the part of a mesh whose material is in no map
 -- Set TEST_GROUPS > 0 to process only that many groups and save to the work folder (restructure_test.max).
-if ING_WORK == undefined or ING_RAW == undefined or ING_OUT == undefined do throw "run this script with max_materials.bat (it sets the paths)"
+if ING_WORK == undefined or ING_RAW == undefined or ING_OUT == undefined do throw "run this script with corona_materials.bat (it sets the paths)"
 if TEST_GROUPS == undefined do global TEST_GROUPS = 0
 global OUT = if TEST_GROUPS > 0 then (ING_WORK + "restructure_test.max") else ING_OUT
 global LOGF

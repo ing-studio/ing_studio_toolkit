@@ -6,7 +6,7 @@
 
 The drawing (DWG / DXF), the survey point cloud and, optionally, the project PDFs are picked here; the tool writes
 output/<drawing>_FromDWG.pln and its report next to the drawing - a new file, the open project is not touched.
-All the logic lives in the tool; this button only starts it (dwg2ac.bat DRAWING POINT_CLOUD [--doc PDF ...]).
+All the logic lives in the tool; this button only starts it (site_model.bat DRAWING POINT_CLOUD [--doc PDF ...]).
 
 Installed into Documents/Tapir/custom-scripts by install.bat (which fills in TOOL_DIR).
 """
@@ -27,9 +27,9 @@ def main():
     root.withdraw()
     root.attributes("-topmost", True)
 
-    dwg2ac_bat = Path(TOOL_DIR) / "dwg2ac.bat"
-    if not dwg2ac_bat.exists():
-        messagebox.showerror(TITLE, f"The autocad_to_archicad tool is not found:\n{dwg2ac_bat}\n\nThe toolkit has "
+    site_model_bat = Path(TOOL_DIR) / "site_model.bat"
+    if not site_model_bat.exists():
+        messagebox.showerror(TITLE, f"The autocad_to_archicad tool is not found:\n{site_model_bat}\n\nThe toolkit has "
                                     "moved: run install.bat again in the tool's folder.", parent=root)
         return
     drawing = filedialog.askopenfilename(title="The site plan (DWG or DXF)", filetypes=DRAWING_TYPES, parent=root)
@@ -39,7 +39,7 @@ def main():
                                        initialdir=str(Path(drawing).parent), parent=root)
     if not cloud:
         return
-    cmd = [str(dwg2ac_bat), drawing, cloud]
+    cmd = [str(site_model_bat), drawing, cloud]
     if messagebox.askyesno(TITLE, "Add the project's PDFs?\n\nThey are optional: they add the underground levels "
                                   "and check the floor area.", parent=root):
         pdfs = filedialog.askopenfilenames(title="Project PDFs", filetypes=[("PDF", "*.pdf")],
@@ -50,7 +50,7 @@ def main():
     # own console window (a small launcher .cmd avoids cmd's quoting rules), so the progress is visible and
     # Archicad stays free; run in the drawing's folder: the results go to its "output" folder
     folder = str(Path(drawing).parent)
-    launcher = Path(tempfile.gettempdir()) / "autocad_to_archicad_launch.cmd"
+    launcher = Path(tempfile.gettempdir()) / "site_model_launch.cmd"
     line = " ".join(f'"{c}"' for c in cmd)
     launcher.write_text(f'@echo off\r\nchcp 65001 >nul\r\ntitle {TITLE}\r\ncd /d "{folder}"\r\n'
                         f"call {line}\r\necho.\r\npause\r\n", encoding="utf-8")

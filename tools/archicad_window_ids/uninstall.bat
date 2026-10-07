@@ -1,6 +1,6 @@
 @echo off
-REM Uninstalls the autocad_to_archicad tool: takes the "Site model from AutoCAD" button out of the Tapir palette.
+REM Uninstalls the archicad_window_ids tool: takes the "Window IDs" button out of the Tapir palette.
 REM Tapir and the toolkit's Python stay (the other tools use them); the toolkit's uninstall.bat removes everything.
 setlocal
-call "%~dp0site_model.bat" addon remove
+call "%~dp0uid.bat" addon remove
 if not defined TOOLKIT_NO_PAUSE pause

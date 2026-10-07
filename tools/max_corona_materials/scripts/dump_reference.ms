@@ -1,8 +1,8 @@
 -- Step "reference": the Corona materials of the reference scene, as a material library (the templates of the part
--- materials) and as JSON (to read what is in it). Run by max_materials.bat, which defines:
+-- materials) and as JSON (to read what is in it). Run by corona_materials.bat, which defines:
 --   ING_REFERENCE   the reference scene (.max)
 --   ING_WORK        the work folder: reference.mat, reference_materials.json, reference.log
-if ING_WORK == undefined or ING_REFERENCE == undefined do throw "run this script with max_materials.bat (it sets the paths)"
+if ING_WORK == undefined or ING_REFERENCE == undefined do throw "run this script with corona_materials.bat (it sets the paths)"
 
 fn jstr s = (
 	s = s as string

@@ -6,9 +6,9 @@ target-version = "py312"  # the toolkit's Python (core\requirements.txt)
 extend-exclude = ["tools/*/input", "tools/*/output"]
 
 [tool.ruff.per-file-target-version]
-# the palette buttons and uid_assignment run in Tapir's own Python, which may be 3.10
+# the palette buttons and archicad_window_ids run in Tapir's own Python, which may be 3.10
 "tools/*/addon/*.py" = "py310"
-"tools/uid_assignment/**/*.py" = "py310"
+"tools/archicad_window_ids/**/*.py" = "py310"
 
 [tool.ruff.lint]
 select = ["E9", "F"]

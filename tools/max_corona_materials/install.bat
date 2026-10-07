@@ -6,9 +6,9 @@ echo Installing max_corona_materials ...
 if not defined TOOLKIT_ENV_READY (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\core\setup_env.ps1" || goto failed
 )
-call "%~dp0max_materials.bat" check || goto failed
+call "%~dp0corona_materials.bat" check || goto failed
 echo.
-echo Done. Put the reference scene (.max) and the model (.fbx) in input\ and double-click max_materials.bat.
+echo Done. Put the reference scene (.max) and the model (.fbx) in input\ and double-click corona_materials.bat.
 goto end
 :failed
 echo.

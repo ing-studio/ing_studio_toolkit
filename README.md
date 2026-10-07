@@ -8,9 +8,9 @@ its settings, its tests, and a README that explains how to use it. The code they
 | tool | what it does | command | button |
 |---|---|---|---|
 | [pointcloud_to_archicad_relief](tools/pointcloud_to_archicad_relief/README.md) | Point cloud → Archicad terrain mesh + contour layers | `relief.bat` | Archicad: *Relief from point cloud* |
-| [autocad_to_archicad](tools/autocad_to_archicad/README.md) | AutoCAD site plan + point cloud (+ optional project PDFs) → Archicad site model: terrain, existing and new streets (Armenian street norms), buildings, trees, underground levels, the drawing in 2D. The site's position and the layers' meaning are worked out automatically | `dwg2ac.bat` | Archicad: *Site model from AutoCAD* |
-| [uid_assignment](tools/uid_assignment/README.md) | Window types → IDs Պ-01, Պ-02 … in every window, ID labels on the layer `Window IDs - Floor Plans`, and on `Window Types - Measurements` a worksheet with each type's front view, dimensions and a table (or all of it as output .pln/.pdf files) | `uid.bat` | Archicad: *Window IDs* |
-| [max_corona_materials](tools/max_corona_materials/README.md) | A 3ds Max model's many imported materials → one group per equipment and a small set of clean Corona part materials, based on a reference scene | `max_materials.bat` | – (runs 3ds Max in the background) |
+| [autocad_to_archicad](tools/autocad_to_archicad/README.md) | AutoCAD site plan + point cloud (+ optional project PDFs) → Archicad site model: terrain, existing and new streets (Armenian street norms), buildings, trees, underground levels, the drawing in 2D. The site's position and the layers' meaning are worked out automatically | `site_model.bat` | Archicad: *Site model from AutoCAD* |
+| [archicad_window_ids](tools/archicad_window_ids/README.md) | Window types → IDs Պ-01, Պ-02 … in every window, ID labels on the layer `Window IDs - Floor Plans`, and on `Window Types - Measurements` a worksheet with each type's front view, dimensions and a table (or all of it as output .pln/.pdf files) | `window_ids.bat` | Archicad: *Window IDs* |
+| [max_corona_materials](tools/max_corona_materials/README.md) | A 3ds Max model's many imported materials → one group per equipment and a small set of clean Corona part materials, based on a reference scene. `sandstone`: gym scenes re-finished in Technogym's Sand Stone materials (4K maps, black equipment removed or recoloured, previews) | `corona_materials.bat` | – (runs 3ds Max in the background) |
 
 ## Get it
 ```
@@ -25,7 +25,7 @@ Three ways, the same for every tool (see its README):
 - **the button** in the host program (Archicad: *Window › Palettes › Tapir*);
 - **a double-click** on the tool's command (`relief.bat`, …): it takes the files in the tool's `input\` folder and
   writes the results to its `output\` folder;
-- **a terminal**: `relief.bat survey.e57`, `dwg2ac.bat plan.dwg survey.e57`, … (`--help` lists everything).
+- **a terminal**: `relief.bat survey.e57`, `site_model.bat plan.dwg survey.e57`, … (`--help` lists everything).
 
 ## How it is organised
 ```
@@ -50,7 +50,9 @@ ing_studio_toolkit\
 Python, and offers to delete the caches. A tool's own `uninstall.bat` removes only that tool's button.
 
 ## Develop
-- `test.bat` runs every test suite; none needs Archicad, AutoCAD or the network. `ruff check .` looks for errors in
-  the code (settings in `pyproject.toml`).
+- `test.bat` runs every test suite; none needs Archicad, AutoCAD, 3ds Max or the network (`set ING_TEST_3DSMAX=1`
+  adds max_corona_materials' steps in 3ds Max). `ruff check .` looks for errors in the code (settings in
+  `pyproject.toml`); without ruff installed, the toolkit's uv runs it:
+  `%LOCALAPPDATA%\ing_studio_toolkit\env\uv\uv.exe tool run ruff check .`
 - A new tool follows [the tool standard](docs/tool_standard.md); `test.bat core` checks its layout and its README.
 - Shared code goes into `core\ing_core` ([core\README.md](core/README.md)), never into a copy in a tool.

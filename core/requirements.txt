@@ -5,6 +5,7 @@ scipy==1.16.2
 shapely==2.1.2
 ezdxf==1.4.4
 matplotlib==3.10.6
+contourpy==1.4.0          # (it comes with matplotlib; autocad_to_archicad uses it directly for contour lines)
 pymupdf==1.28.2
 # GDAL has no official Windows wheel: the build of the geospatial-wheels project
 gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2026.8.20/gdal-3.13.3-cp312-cp312-win_amd64.whl

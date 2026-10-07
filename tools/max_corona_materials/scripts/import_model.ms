@@ -1,10 +1,10 @@
 -- Step "import": the model into 3ds Max (an FBX is imported in millimetres; a .max is opened), saved as the raw
 -- import, and its materials listed with how many meshes use them and their colour (the input of the part map).
--- Run by max_materials.bat, which defines:
+-- Run by corona_materials.bat, which defines:
 --   ING_MODEL       the model: .fbx or .max
 --   ING_RAW         the raw import to write (.max)
 --   ING_WORK        the work folder: model_materials.json, import.log
-if ING_WORK == undefined or ING_MODEL == undefined or ING_RAW == undefined do throw "run this script with max_materials.bat (it sets the paths)"
+if ING_WORK == undefined or ING_MODEL == undefined or ING_RAW == undefined do throw "run this script with corona_materials.bat (it sets the paths)"
 
 global LOGF
 

@@ -88,7 +88,7 @@ def main():
 
     # own console window (a small launcher .cmd avoids cmd's quoting rules), so the progress is visible and
     # Archicad stays free; the pipeline shows a message when it is done
-    launcher = Path(tempfile.gettempdir()) / "relief_pipeline_launch.cmd"
+    launcher = Path(tempfile.gettempdir()) / "relief_launch.cmd"
     line = " ".join(f'"{c}"' for c in cmd)
     launcher.write_text(f'@echo off\r\nchcp 65001 >nul\r\ntitle Relief pipeline\r\ncd /d "{folder}"\r\n'
                         f"call {line}\r\necho.\r\npause\r\n", encoding="utf-8")

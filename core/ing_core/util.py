@@ -63,10 +63,6 @@ def set_log_file(path):
     _log_file = Path(path) if path else None
 
 
-def log_file():
-    return _log_file
-
-
 def set_stage(name):
     """The tag of messages that do not name one ('ground: ...' names its own)."""
     global _stage

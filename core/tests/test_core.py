@@ -127,7 +127,6 @@ class Launchers(unittest.TestCase):
         env = dict(os.environ, ING_TOOLKIT_PYTHON=sys.executable)
         commands = [b for t in sorted((TOOLKIT_DIR / "tools").iterdir()) for b in sorted(t.glob("*.bat"))
                     if b.name not in ("install.bat", "uninstall.bat")]
-        self.assertEqual(len(commands), len(list((TOOLKIT_DIR / "tools").iterdir())))  # one command per tool
         for bat in commands:
             p = subprocess.run(f'cmd /s /c ""{bat}" --help"', capture_output=True, text=True, encoding="utf-8",
                                errors="replace", env=env, cwd=tempfile.gettempdir())

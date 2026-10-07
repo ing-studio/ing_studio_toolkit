@@ -7,19 +7,36 @@ parts marked *checked*.
 ```
 tools\<tool_name>\
   README.md          what it does and how to use it (sections below)                    checked
-  <command>.bat      the command: relief.bat, dwg2ac.bat, ... (one per tool)             checked
+  <command>.bat      the command (one per tool): relief.bat, site_model.bat, ...         checked
   install.bat        once per computer: the toolkit's Python, then the tool's add-on      checked
   uninstall.bat      takes the tool's add-on away (Tapir and the Python stay)             checked
-  addon\             the button(s) inside the host program, if the tool has one           checked (placeholder)
+  addon\             the button(s) inside the host program, if the tool has one
   config\
-    default.json     every setting, each with a "_note"                                   checked (valid JSON)
-    examples\        example project.json files
+    default.json     every setting, explained by a note: "_<key>" beside it (or "_about"   checked (valid JSON)
+                     for a group of them); keys starting with _ are notes, never settings
+    examples\        example project.json files, if any
     project.json     this machine's settings (not in git)
   input\             the files of a double-click run (only README.md in git)              checked
   output\            its results (only README.md in git)                                  checked
-  <package>\         the code: a Python package (relief, acad, uids, maxmat)
+  <command>\         the code: a Python package named like the command, with cli.py     checked
   tests\             test_*.py: run without the host program, network or real data        checked
+  scripts\           scripts that run inside the host program (MAXScript, ...), if any
+  examples\          example inputs or results, if any
 ```
+
+## Names
+| what | rule | examples |
+|---|---|---|
+| the tool's folder | lower case, words joined by `_`; the program it works with and what it makes | `pointcloud_to_archicad_relief`, `autocad_to_archicad`, `archicad_window_ids`, `max_corona_materials` |
+| the command | what the tool makes, lower case with `_`, like its button | `relief.bat`, `site_model.bat`, `window_ids.bat`, `corona_materials.bat` |
+| the package | the command's name: `<command>.bat` runs `<command>\cli.py` | `relief\`, `site_model\`, `window_ids\`, `corona_materials\` |
+| the button | what the tool makes, in words, as a person says it | *Relief from point cloud*, *Site model from AutoCAD*, *Window IDs* |
+| the README title | `<what goes in> → <what comes out>` | *Point cloud → Archicad relief* |
+| the cache | the tool's folder name, under `%LOCALAPPDATA%\ing_studio_toolkit` | |
+| the tests | `tests\test_<command>.py`, or one file per topic | `test_relief.py`; `test_types.py`, `test_layers.py` |
+
+A result file keeps the name of its input, with the tool's suffix (`survey_ReliefOnly.pln`, `plan_FromDWG.pln`,
+`project_window_ids.pln`, `model_corona.max`). Those suffixes stay as they are: projects hotlink these files by name.
 
 ## Behaviour
 - **The command** is a `.bat` of ten lines: it sets `TOOL_DIR`, `TOOL_MODULE` and `TOOL_PYTHON` and calls
@@ -58,8 +75,7 @@ The section names are checked; the text is written for the people who use the to
 see on the screen.
 
 ## Adding a tool
-1. Copy the layout above into `tools\<tool_name>` (lower case, words joined by `_`, saying what turns into what:
-   `pointcloud_to_archicad_relief`).
+1. Copy the layout above into `tools\<tool_name>`, named as in "Names".
 2. Write the package, its `cli.main`, and the tests; use `ing_core` for logging, settings and Archicad.
 3. Write the README and the `input\` / `output\` READMEs.
 4. Add a row to the table in the toolkit's `README.md`.

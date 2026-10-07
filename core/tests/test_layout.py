@@ -20,12 +20,18 @@ class Layout(unittest.TestCase):
     def test_every_tool_has_the_standard_parts(self):
         for tool in TOOLS:
             with self.subTest(tool=tool.name):
+                self.assertRegex(tool.name, r"^[a-z][a-z0-9_]*$", "a tool's folder is lower case, words joined by _")
                 for part in ("README.md", "install.bat", "uninstall.bat", "config/default.json", "input/README.md",
                              "output/README.md"):
                     self.assertTrue((tool / part).is_file(), f"{tool.name}/{part} is missing")
                 commands = [b for b in tool.glob("*.bat") if b.name not in ("install.bat", "uninstall.bat")]
                 self.assertEqual(len(commands), 1, f"{tool.name}: one command .bat, found {commands}")
-                self.assertIn("core\\run.cmd", commands[0].read_text(encoding="utf-8"))
+                bat = commands[0].read_text(encoding="utf-8")
+                self.assertIn("core\\run.cmd", bat)
+                name = commands[0].stem  # <command>.bat runs <command>\cli.py
+                self.assertRegex(name, r"^[a-z][a-z0-9_]*$", f"{tool.name}: the command is lower case, words joined by _")
+                self.assertTrue((tool / name / "cli.py").is_file(), f"{tool.name}: no package {name}\\ with cli.py")
+                self.assertIn(f'set "TOOL_MODULE={name}.cli"', bat, f"{tool.name}: {name}.bat runs {name}.cli")
                 self.assertTrue(list((tool / "tests").glob("test_*.py")), f"{tool.name} has no tests")
                 json.loads((tool / "config" / "default.json").read_text(encoding="utf-8"))
 
