@@ -4,13 +4,17 @@
 --   smoothRounds nodes angleDeg iters renderIters -> #(meshes made smooth, objects subdivided, faces before, faces after)
 --                                                    (and SR_DUP_FACES: the duplicate faces deleted, SR_LIFTED:
 --                                                    the faces of screens and labels lifted off their panel)
--- Every mesh's vertices are welded (SR_WELD_MM) and its smoothing groups set again by angle (edges sharper than
+-- Every mesh's vertices are welded (SR_WELD_MM, real mm: SketchUp leaves its corners up to half a millimetre apart,
+-- and the seams show as lines) and its smoothing groups set again by angle (edges sharper than
 -- angleDeg stay hard). A round object - mostly curved surfaces (SR_ROUND_SHARE of its area) - then gets a TurboSmooth that keeps the hard edges
 -- and the material borders sharp (separate by smoothing groups and materials): iters in the viewport, renderIters in
 -- renders. Flat objects (boxes, plates) keep their faces: subdividing them would add nothing.
 -- Instances (SketchUp components) share their mesh: it is welded and smoothed once, for all of them. An object with
 -- modifiers (an Edit Poly someone added) is collapsed first, which keeps what the modifiers did.
-global SR_WELD_MM = 0.01
+global SR_WELD_MM = 0.5
+-- the weld of one object: SR_WELD_MM, at most a tenth of its smallest dimension (a thin sheet keeps its two sides),
+-- in the mesh's own units (sc: the object's scale)
+fn srWeldDist o sc = (local d = o.max - o.min; (amin SR_WELD_MM (0.1 * (amin #(d.x, d.y, d.z)))) / sc)
 global SR_SKIPPED = #()        -- objects that could not be smoothed (names), for the log
 
 fn srAll n = if n > 0 then #{1..n} else #{}
@@ -95,10 +99,10 @@ fn srDeleteDupFaces b = (
 -- a screen, a label or a trim drawn on a panel in the same plane, inside one mesh (SketchUp: a face of another
 -- material over a face): the two fight in renders, in ragged patches of both colours. Where faces of two materials lie
 -- in one plane (SR_PLANE_MM) one over the other, the smaller material's faces (the screen, the label) get vertices of
--- their own and are lifted SR_LIFT_MM off the panel, so they lie on it. Distances are in scene units (the mesh's own
+-- their own and are lifted SR_LIFT_MM off the panel, so they lie on it. Distances are in mm (the mesh's own units
 -- times its scale, sc). Returns the faces lifted.
-global SR_PLANE_MM = 0.05
-global SR_LIFT_MM = 0.25    -- (more than the weld, SR_WELD_MM at these scenes' scale 10, so the two never weld again)
+global SR_PLANE_MM = 0.1
+global SR_LIFT_MM = 1.0     -- (more than the weld, SR_WELD_MM, so the two never weld again)
 global SR_LIFTED = 0
 fn srPointInTri p a b c n = (
 	(dot (cross (b - a) (p - a)) n) >= 0 and (dot (cross (c - b) (p - b)) n) >= 0 and (dot (cross (a - c) (p - c)) n) >= 0
@@ -150,6 +154,11 @@ fn srLiftDecals o sc = (
 			)
 			if over > 0 do (lift[i] = true; up[i] = getFaceNormal tm over)
 		)
+		-- and the small material's other faces in this plane (a label over a groove or a hole in its panel: lifting
+		-- only some of its faces would leave steps between them, which render as dark lines)
+		local binUp = undefined
+		for i in fs where lift[i] while binUp == undefined do binUp = up[i]
+		if binUp != undefined do for i in fs where getFaceMatID tm i == small and not lift[i] do (lift[i] = true; up[i] = binUp)
 	)
 	if lift.numberSet == 0 do return 0
 	-- the lifted faces get vertices of their own (the panel keeps its own), moved along the panel's normal
@@ -188,16 +197,18 @@ fn srWeldSmooth o angleDeg = (
 	)
 	if classof b == Editable_mesh then (
 		if meshop.getNumFaces b == 0 do return false   -- (an empty mesh: nothing to smooth)
-		meshop.weldVertsByThreshold b (srAll (meshop.getNumVerts b)) SR_WELD_MM
-		srDeleteDupFaces b
 		local s = o.transform.scalepart
-		srLiftDecals o ((abs s.x + abs s.y + abs s.z) / 3.0)
+		local sc = (abs s.x + abs s.y + abs s.z) / 3.0
+		meshop.weldVertsByThreshold b (srAll (meshop.getNumVerts b)) (srWeldDist o sc)
+		srDeleteDupFaces b
+		srLiftDecals o sc
 		meshop.autoSmooth b (srAll (meshop.getNumFaces b)) angleDeg
 		update o
 		true
 	) else if classof b == Editable_Poly then (
 		if polyop.getNumFaces b == 0 do return false
-		b.weldThreshold = SR_WELD_MM
+		local s = o.transform.scalepart
+		b.weldThreshold = srWeldDist o ((abs s.x + abs s.y + abs s.z) / 3.0)
 		polyop.weldVertsByThreshold b (srAll (polyop.getNumVerts b))
 		srDeleteDupFaces b
 		b.autoSmoothThreshold = angleDeg

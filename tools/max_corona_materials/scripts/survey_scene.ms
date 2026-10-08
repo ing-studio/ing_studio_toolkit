@@ -3,12 +3,15 @@
 --   ING_WORK     the work folder
 --   ING_LOG      the log to write; its last line is DONE or ERROR: ...
 --   ING_SCENE    the scene (.max)
+--   ING_ROOT     the node an import put the equipment under (SketchUp: Model)
 --   ING_SURVEY   the file to write: JSON lines
---                  {"eq": name, "hidden": true|false (all of it hidden), "nodes": n, "faces": n, "min": [x,y,z],
---                   "max": [x,y,z], "mats": [{"m", "f", "rgb"}]}
+--                  {"eq": name, "hidden": true|false (all of it hidden), "import": true|false (under ING_ROOT),
+--                   "scale": the scale its meshes have in the scene (the median), "nodes": n, "faces": n,
+--                   "min": [x,y,z], "max": [x,y,z], "mats": [{"m", "f", "rgb"}]}
 --                  {"material": name, "rgb": [r,g,b] or null}
--- Equipment = the children of the node "Model" (a SketchUp import puts every component there) and the scene's
--- other top-level groups and objects.
+-- Equipment = the children of the node ING_ROOT (a SketchUp import puts every component there) and the scene's
+-- other top-level groups and objects (merged in from elsewhere). Sizes are the scene's (an import's may not be real).
+if ING_ROOT == undefined do ING_ROOT = "Model"
 if ING_WORK == undefined or ING_SCENE == undefined or ING_SURVEY == undefined do throw "run this script with corona_materials.bat (it sets the paths)"
 
 fn jstr s = (
@@ -38,7 +41,7 @@ fn allDescendants root = (
 	out
 )
 fn equipmentOf = (
-	local root = getNodeByName "Model"
+	local root = getNodeByName ING_ROOT
 	local eq = if isValidNode root then (for c in root.children collect c) else #()
 	for o in objects where o.parent == undefined and o != root and (isGroupHead o or superclassof o == GeometryClass) do append eq o
 	eq
@@ -55,9 +58,11 @@ fn surveyMain = (
 			local desc = allDescendants E
 			local faces = Dictionary #string
 			local bmin = [1e12,1e12,1e12]; local bmax = [-1e12,-1e12,-1e12]
-			local total = 0; local shown = 0
+			local total = 0; local shown = 0; local scs = #()
 			for o in desc where superclassof o == GeometryClass do (
 				if not o.isHiddenInVpt do shown += 1
+				local sc = o.transform.scalepart
+				append scs ((abs sc.x + abs sc.y + abs sc.z) / 3.0)
 				bmin = [amin bmin.x o.min.x, amin bmin.y o.min.y, amin bmin.z o.min.z]
 				bmax = [amax bmax.x o.max.x, amax bmax.y o.max.y, amax bmax.z o.max.z]
 				local nf = try ((getPolygonCount o)[1]) catch 0
@@ -70,7 +75,9 @@ fn surveyMain = (
 				)
 			)
 			if total == 0 do continue
-			local s = "{\"eq\":" + jstr E.name + ",\"hidden\":" + (shown == 0) as string + ",\"nodes\":" + desc.count as string + ",\"faces\":" + total as string + ",\"min\":" + p3 bmin + ",\"max\":" + p3 bmax + ",\"mats\":["
+			local imported = E.parent != undefined and E.parent.name == ING_ROOT
+			sort scs
+			local s = "{\"eq\":" + jstr E.name + ",\"hidden\":" + (shown == 0) as string + ",\"import\":" + imported as string + ",\"scale\":" + (formattedPrint scs[(scs.count + 1) / 2] format:".4f") + ",\"nodes\":" + desc.count as string + ",\"faces\":" + total as string + ",\"min\":" + p3 bmin + ",\"max\":" + p3 bmax + ",\"mats\":["
 			local first = true
 			for k in faces.keys do (
 				s += (if first then "" else ",") + "{\"m\":" + jstr k + ",\"f\":" + faces[k] as string + ",\"rgb\":" + allMats[k] + "}"

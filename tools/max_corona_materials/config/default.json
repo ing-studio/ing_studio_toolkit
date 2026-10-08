@@ -48,6 +48,12 @@
   },
   "sandstone": {
     "_about": "corona_materials.bat sandstone: scenes re-finished in Technogym's Sand Stone materials (corona_materials/sandstone.py)",
+    "_import_unit_mm": "the length of one unit of the import's meshes (under max.model_root), in mm: 25.4 for SketchUp's inches. Each piece of the import's equipment is scaled so that its meshes are at this size: the FBX import read them at 10 mm, 2.54 times too small (checked on Technogym's sizes: a wellness ball 553 mm, a two-tier dumbbell rack 2514 x 659 mm, a Reform 2468 x 889 mm). 1 for an import in millimetres at its real size. Equipment merged in from elsewhere (Technogym's own Artis models) keeps its size",
+    "import_unit_mm": 25.4,
+    "_combine": "true: the scenes put together in one file, <name> - Sand Stone.max, each scene's equipment under a dummy named after the scene, side by side; false: one file per scene",
+    "combine": true,
+    "_gap_mm": "the space between two pieces of equipment, arranged in rows on the floor (mm); the scenes are 4 times this apart",
+    "gap_mm": 1000,
     "_map_size": "the texture maps' size in pixels (4096; 2048 for a quick try)",
     "map_size": 4096,
     "_images_dir": "a folder whose images (logos, console screens) the scenes' logo and display materials use; copied next to the maps. null = none",
@@ -72,14 +78,14 @@
     "smooth_iterations": 0,
     "_smooth_render_iterations": "TurboSmooth iterations in renders",
     "smooth_render_iterations": 1,
-    "_chamfer": "rounded edges: the sharp edges of plain solid parts (plates, boxes, bars, pads) get a real rounded chamfer (a live Chamfer modifier), each one checked; the other edges are rounded in renders by Corona Round Edges",
+    "_chamfer": "rounded edges: the sharp edges of every solid part that is not round (plates, boxes, bars, pads, frames, covers) get a real rounded chamfer (a live Chamfer modifier), each one checked and taken off again when it fails; every edge is also rounded in renders by Corona Round Edges",
     "chamfer": true,
     "_chamfer_angle": "edges sharper than this (degrees) are chamfered",
-    "chamfer_angle": 55,
+    "chamfer_angle": 40,
     "_chamfer_ratio": "the chamfer: this part of the object's smallest dimension (at most a quarter of its wall's thickness, and its material's chamfer_mm)",
-    "chamfer_ratio": 0.1,
+    "chamfer_ratio": 0.15,
     "_chamfer_min_mm": "a smaller chamfer (mm) would not show: left out",
-    "chamfer_min_mm": 1.0
+    "chamfer_min_mm": 0.5
   },
   "_fallback_part": "the part of a mesh whose material is in no map",
   "fallback_part": "TG_PLASTIC_MID_GREY"

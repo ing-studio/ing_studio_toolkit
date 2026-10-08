@@ -1,9 +1,11 @@
 """Tests of the Sand Stone finish (corona_materials.sandstone, corona_materials.maps), without 3ds Max.
 
-  the rules     black twins / black-only equipment, swatches and zones, the material of every Technogym material
+  the rules     real size, black twins / black-only equipment, swatches and zones, the material of every Technogym
+                material, the name of the scenes put together
   the maps      seamless, the same every time, the catalogue's colours
   3ds Max       (only with ING_TEST_3DSMAX=1) the clean-up of the meshes: the same surface twice, a screen lying in its
-                panel's plane, duplicate faces, dense meshes smoothed over their hard edges, weighted normals
+                panel's plane, duplicate faces, dense meshes smoothed over their hard edges, weighted normals; the
+                equipment arranged in rows
 Run:  test.bat max_corona_materials   (in the toolkit's folder)
 """
 import os
@@ -18,7 +20,7 @@ import numpy as np
 TOOL_DIR = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(TOOL_DIR), str(TOOL_DIR.parent.parent / "core")]  # the tool, the toolkit's library
 
-from corona_materials import maps, maxbatch, sandstone as S  # noqa: E402
+from corona_materials import maps, maxbatch, sandstone as S, sandstone_run as R  # noqa: E402
 
 KNOWN = S.known_colours(TOOL_DIR)
 
@@ -45,12 +47,36 @@ class Equipment(unittest.TestCase):
         self.assertEqual(acts["part1"]["G_14a33673_bike"][0], "recolour")     # mostly dark, no Sand Stone version
         self.assertEqual(acts["part2"]["TG_freeweights_sandstone_424_4023_1"][0], "keep")
 
-    def test_hidden_black_equipment_is_removed(self):
+    def test_twins_are_found_at_real_size(self):
+        # the import's equipment is 2.54 times too small (SketchUp's inches read as mm); a model merged in from
+        # elsewhere is real: the black import is the Sand Stone model's twin only at their real sizes
+        black = eq("TG_artis_run_diamondblack_1", (350.4, 810.4, 621.3), [("TG_artis_cardio_diamondblack_frame", 900)])
+        black.update({"import": True, "scale": 10.0})        # (its meshes in inches, read at 10 mm)
+        sand = eq("Group001_Artis_Run", (890, 2058, 1578), [("Material #2147464532", 900)])
+        scenes = {"part1": [black], "part2": [sand]}
+        self.assertEqual(S.decide(scenes, KNOWN)["part1"][0][1], "recolour")
+        S.to_real_size([black, sand], 25.4)
+        self.assertEqual([round(d) for d in S.dims_cm(black)], [89, 158, 206])
+        self.assertEqual(S.dims_cm(sand), [89.0, 157.8, 205.8])                  # (not an import: as it was)
+        self.assertEqual(S.decide(scenes, KNOWN)["part1"][0][1], "remove")
+        # a piece scaled by hand in its scene (meshes at 29.25) comes to the same real size
+        rig = eq("TG_freeweights_diamondblack_432_3943_1", (2280.4, 2183.4, 1520.3), [])
+        rig.update({"import": True, "scale": 29.253})
+        S.to_real_size([rig], 25.4)
+        self.assertEqual([round(d) for d in S.dims_cm(rig)], [132, 190, 198])
+
+    def test_hidden_equipment_is_removed(self):
         bike = eq("G_14a33673_bike", (230, 480, 480), [("material__2_aee9efb6", 900)])
         bike["hidden"] = True
-        rows = S.decide({"part1": [bike]}, KNOWN)["part1"]
-        self.assertEqual(rows[0][1], "remove")
+        rack = eq("TG_freeweights_sandstone_424_4023_1", (1200, 930, 1325),
+                  [("TG_free_weights_sandstone_frame_performance", 500)])
+        rack["hidden"] = True
+        black = eq("TG_freeweights_diamondblack_1169_4023_1", (930, 1200, 1320),
+                   [("TG_free_weights_diamondblack_frame_performance", 500)])
+        rows = S.decide({"part1": [bike, rack, black]}, KNOWN)["part1"]
+        self.assertEqual([r[1] for r in rows], ["remove", "remove", "recolour"])   # (a hidden twin is no twin)
         self.assertIn("hidden", rows[0][2])
+        self.assertIn("hidden", rows[1][2])
 
     def test_finish(self):
         self.assertEqual(S.finish(eq("TG_skill_anthracitesilver_801_340_1", (1, 1, 1), []), KNOWN), "black")
@@ -122,6 +148,22 @@ class Materials(unittest.TestCase):
                 self.assertGreaterEqual(m.get("chamfer_mm", 0), m["round_mm"], name)
 
 
+class Results(unittest.TestCase):
+    def test_the_name_of_the_scenes_together(self):
+        stems = [f"Technogym Equipment Part {i}" for i in range(1, 5)]
+        self.assertEqual(R.common_name(stems), "Technogym Equipment")
+        self.assertEqual(R.common_name(["gym a", "gym b"]), "gym")
+        self.assertEqual(R.common_name(["one"]), "one")
+        self.assertEqual(R.common_name(["north", "south"]), "Scenes")
+
+    def test_sizes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sizes.tsv"
+            path.write_text("rack_1\t2515\t660\t897\nbroken line\n", encoding="utf-8")
+            self.assertEqual(R.read_sizes(path), {"rack_1": (2515, 660, 897)})
+            self.assertEqual(R.read_sizes(Path(tmp) / "missing.tsv"), {})
+
+
 class Maps(unittest.TestCase):
     def test_seamless_and_seeded(self):
         a = maps.speckled_stone(256, np.random.default_rng(1))
@@ -153,6 +195,7 @@ class Maps(unittest.TestCase):
 CLEAN = r"""
 fileIn (ING_SCRIPTS + "smooth_rounds.ms")
 fileIn (ING_SCRIPTS + "clean_scene.ms")
+fileIn (ING_SCRIPTS + "arrange_equipment.ms")
 fn mtl nm = (local m = StandardMaterial(); m.name = nm; m)
 fn cleanTest = (
     local f = createFile (ING_WORK + "clean.log")
@@ -203,6 +246,20 @@ fn cleanTest = (
         for i = 1 to sm.numfaces do sg[getFaceSmoothGroup sm i] = true
         format "dense_groups=%\n" sg.count to:f
         format "e_mods=%\n" ((for m in e.modifiers collect (classof m) as string) as string) to:f
+        -- equipment far away, apart and above the floor: arranged in rows from the origin, on the floor, apart
+        delete objects
+        local eqs = #(Box length:500 width:2000 height:900 pos:[90000, 400000, 70], \
+            Box length:900 width:1200 height:1500 pos:[95000, 380000, 70], Box length:300 width:300 height:300 pos:[0, 0, -20])
+        local arr = arrangeEquipment eqs 100.0
+        format "arranged=%\n" arr[1] to:f
+        format "floor=%\n" ((for o in eqs collect (formattedPrint o.min.z format:".1f")) as string) to:f
+        format "deepest_first=%\n" ((formattedPrint eqs[2].max.y format:".1f") + "," + (formattedPrint eqs[2].min.x format:".1f")) to:f
+        local apart = true
+        for i = 1 to 3 do for j = i + 1 to 3 do (
+            local a = eqs[i]; local b = eqs[j]
+            if a.min.x < b.max.x + 99 and b.min.x < a.max.x + 99 and a.min.y < b.max.y + 99 and b.min.y < a.max.y + 99 do apart = false
+        )
+        format "apart=%\n" apart to:f
         format "DONE\n" to:f
     ) catch (format "ERROR: %\n" (getCurrentException()) to:f)
     close f
@@ -232,14 +289,18 @@ class CleanUpIn3dsMax(unittest.TestCase):
         self.assertNotIn('"a"', got["kept"])                 # the generic material gives way to the maker's
         self.assertIn('"d"', got["kept"])
         self.assertEqual(got["lifted"], "2")                 # the screen's two faces ...
-        self.assertAlmostEqual(float(got["screen_z"]), 10.25, places=3)   # ... SR_LIFT_MM off the panel
+        self.assertAlmostEqual(float(got["screen_z"]), 11.0, places=3)    # ... SR_LIFT_MM off the panel
         self.assertEqual(got["contacts"], "2")               # neither gets a TurboSmooth
         self.assertEqual(got["label_lifted"], "2")           # a label inside one mesh is lifted off its face too
-        self.assertAlmostEqual(float(got["label_max_z"]), 0.25, places=3)
+        self.assertAlmostEqual(float(got["label_max_z"]), 1.0, places=3)
         self.assertEqual(got["dup_faces"], "1")
         self.assertEqual(got["e_faces"], "12")
         self.assertGreaterEqual(int(got["dense_groups"]), 2)  # the dense box's sides are no longer smoothed together
         self.assertIn("Weighted_Normals", got["e_mods"])     # a flat object keeps its flat faces flat
+        self.assertEqual(got["arranged"], "3")
+        self.assertEqual(got["floor"], '#("0.0", "0.0", "0.0")')
+        self.assertEqual(got["deepest_first"], "0.0,0.0")     # the deepest at the back row's start
+        self.assertEqual(got["apart"], "true")
 
 
 if __name__ == "__main__":

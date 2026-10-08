@@ -1,10 +1,11 @@
 """Sand Stone finish: scenes of Technogym equipment re-finished in the Sand Stone Collection's materials.
 
 What it decides (the 3ds Max work is scripts/refinish_sandstone.ms):
-  1. which equipment is black (a diamondblack / anthracitesilver finish, or mostly dark) and whether the same product
-     is in the scenes in Sand Stone too (a "twin": the same size within 1.5 cm). A black twin is removed, and so is
-     black equipment hidden in its scene (put away as not needed); a black product with no twin, shown in its scene,
-     is kept, re-finished in Sand Stone and put on its own layer (RECOLOURED_LAYER);
+  1. equipment hidden in its scene was put away as not needed (a copy of one shown in another scene, a strip of
+     floor): it is removed. Which equipment is black (a diamondblack / anthracitesilver finish, or mostly dark) and
+     whether the same product is in the scenes in Sand Stone too (a "twin": the same real size within 1.5 cm). A black
+     twin is removed; a black product with no twin is kept, re-finished in Sand Stone and put on its own layer
+     (RECOLOURED_LAYER);
   2. the colour swatches some models carry (small cubes in pure red, green, blue, yellow beside a machine) and the
      free-space zones drawn on the floor (flat rectangles behind treadmills) are removed;
   3. every material of the scenes becomes one of the Sand Stone materials (MATERIALS), by the rules of parts.py
@@ -27,50 +28,54 @@ RECOLOURED_LAYER = "Sand Stone - recoloured (was black)"
 TWIN_TOLERANCE_CM = 1.5
 
 # The Sand Stone materials. Colours are sRGB; tile_mm is the size of one texture tile on the object (triplanar
-# mapping, so the texture needs no UVs); round_mm the Corona Round Edges radius (renders), chamfer_mm the most a real
-# chamfer may take off a sharp edge (scripts/chamfer_edges.ms: the geometry). Maps are corona_materials.maps
-# files (without .png). Colours are from the catalogue's swatches: Speckled Stone (200,196,184), Clay (120,103,92),
-# Warm Titanium (170,155,135 as photographed; as a metal's reflectance a little lighter).
+# mapping, so the texture needs no UVs); round_mm the Corona Round Edges radius (renders: every edge, between objects
+# too), chamfer_mm the most a real chamfer may take off a sharp edge (scripts/chamfer_edges.ms: the geometry). Sizes are
+# real millimetres (the scenes are brought to real size first): a steel frame's corner is rounded about 5 mm, a moulded
+# cover's more, a pad's most; a pin or a screen's edge 1-2 mm. Maps are corona_materials.maps files (without .png).
+# Colours are from the catalogue's swatches: Speckled Stone (200,196,184), Clay (120,103,92), Warm Titanium
+# (170,155,135 as photographed; as a metal's reflectance a little lighter).
 MATERIALS = {
     "SS_Warm_Titanium": dict(metal=1, rgb=(192, 185, 172), rough=0.45, rough_map="warm_titanium_rough",
                              bump_map="warm_titanium_bump", bump=0.25, tile_mm=40, coat=0.15, coat_rough=0.3,
-                             round_mm=2.5, chamfer_mm=4.0),
+                             round_mm=6.0, chamfer_mm=6.0),
     "SS_Speckled_Stone": dict(rgb=(200, 196, 184), albedo="speckled_stone_albedo", rough=0.46,
                               rough_map="speckled_stone_rough", bump_map="speckled_stone_bump", bump=0.12,
-                              tile_mm=120, round_mm=3.0, chamfer_mm=5.0),
+                              tile_mm=120, round_mm=8.0, chamfer_mm=10.0),
     "SS_Clay_Upholstery": dict(rgb=(120, 103, 92), albedo="clay_leather_albedo", rough=0.58,
                                rough_map="clay_leather_rough", bump_map="clay_leather_bump", bump=0.45, tile_mm=80,
-                               ior=1.45, sheen=0.35, sheen_rgb=(206, 188, 172), sheen_rough=0.45, round_mm=5.0,
-                               chamfer_mm=10.0),
+                               ior=1.45, sheen=0.35, sheen_rgb=(206, 188, 172), sheen_rough=0.45, round_mm=12.0,
+                               chamfer_mm=16.0),
     "SS_Clay_Soft_Touch": dict(rgb=(104, 89, 79), rough=0.55, bump_map="stipple_bump", bump=0.12, tile_mm=30,
-                               ior=1.48, round_mm=2.0, chamfer_mm=3.0),
-    "SS_Umber": dict(rgb=(88, 76, 67), rough=0.5, bump_map="stipple_bump", bump=0.1, tile_mm=30, round_mm=2.0,
-                     chamfer_mm=3.0),
+                               ior=1.48, round_mm=5.0, chamfer_mm=5.0),
+    "SS_Umber": dict(rgb=(88, 76, 67), rough=0.5, bump_map="stipple_bump", bump=0.1, tile_mm=30, round_mm=5.0,
+                     chamfer_mm=5.0),
     "SS_Espresso_Rubber": dict(rgb=(64, 54, 48), rough=0.72, bump_map="stipple_bump", bump=0.15, tile_mm=20,
-                               ior=1.52, round_mm=1.5, chamfer_mm=2.0),
+                               ior=1.52, round_mm=4.0, chamfer_mm=4.0),
     "SS_Clay_Urethane": dict(rgb=(118, 101, 89), rough=0.36, bump_map="stipple_bump", bump=0.05, tile_mm=40,
-                             round_mm=2.5, chamfer_mm=3.0),
-    "SS_Ivory": dict(rgb=(226, 220, 208), rough=0.4, bump_map="stipple_bump", bump=0.05, tile_mm=40, round_mm=2.0,
-                     chamfer_mm=3.0),
-    "SS_Taupe": dict(rgb=(130, 119, 108), rough=0.45, bump_map="stipple_bump", bump=0.06, tile_mm=40, round_mm=2.0,
-                     chamfer_mm=3.0),
+                             round_mm=5.0, chamfer_mm=5.0),
+    "SS_Ivory": dict(rgb=(226, 220, 208), rough=0.4, bump_map="stipple_bump", bump=0.05, tile_mm=40, round_mm=5.0,
+                     chamfer_mm=5.0),
+    "SS_Taupe": dict(rgb=(130, 119, 108), rough=0.45, bump_map="stipple_bump", bump=0.06, tile_mm=40, round_mm=5.0,
+                     chamfer_mm=5.0),
     "SS_Running_Belt": dict(rgb=(58, 54, 50), albedo="belt_albedo", rough=0.7, rough_map="belt_rough",
-                            bump_map="belt_bump", bump=0.4, tile_mm=50, chamfer_mm=1.0),
-    "SS_Polished_Steel": dict(metal=1, rgb=(232, 232, 236), rough=0.05, round_mm=1.0, chamfer_mm=1.0),
+                            bump_map="belt_bump", bump=0.4, tile_mm=50, round_mm=1.5, chamfer_mm=2.0),
+    "SS_Polished_Steel": dict(metal=1, rgb=(232, 232, 236), rough=0.05, round_mm=2.0, chamfer_mm=2.0),
     "SS_Brushed_Steel": dict(metal=1, rgb=(206, 206, 210), rough=0.30, rough_map="brushed_rough",
-                             bump_map="brushed_bump", bump=0.05, tile_mm=60, round_mm=1.0, chamfer_mm=1.0),
+                             bump_map="brushed_bump", bump=0.05, tile_mm=60, round_mm=2.0, chamfer_mm=2.5),
     "SS_TG_Yellow": dict(rgb=(232, 190, 44), rough=0.32, bump_map="stipple_bump", bump=0.05, tile_mm=30,
-                         round_mm=1.5, chamfer_mm=2.0),
-    "SS_Red_Button": dict(rgb=(185, 22, 20), rough=0.22, round_mm=1.5, chamfer_mm=1.5),
-    "SS_Screen_Glass": dict(rgb=(5, 5, 6), rough=0.02, ior=1.52, chamfer_mm=1.0),
+                         round_mm=3.0, chamfer_mm=3.0),
+    "SS_Red_Button": dict(rgb=(185, 22, 20), rough=0.22, round_mm=2.0, chamfer_mm=2.0),
+    "SS_Screen_Glass": dict(rgb=(5, 5, 6), rough=0.02, ior=1.52, round_mm=1.0, chamfer_mm=1.5),
     # a console screen: the scene's own display image, glowing a little (kind = display)
-    "SS_Display": dict(rgb=(5, 5, 6), rough=0.02, ior=1.52, kind="display", glow=1.2, chamfer_mm=1.0),
+    "SS_Display": dict(rgb=(5, 5, 6), rough=0.02, ior=1.52, kind="display", glow=1.2, round_mm=1.0, chamfer_mm=1.5),
     # logos and stickers: the scene's own logo image as a mask between the print and the plate (kind = logo)
-    "SS_Logo_Light": dict(rgb=(226, 220, 208), rough=0.35, kind="logo", print_rgb=(78, 68, 60), chamfer_mm=2.0),
+    "SS_Logo_Light": dict(rgb=(226, 220, 208), rough=0.35, kind="logo", print_rgb=(78, 68, 60), round_mm=2.0,
+                          chamfer_mm=3.0),
     "SS_Logo_Champagne": dict(metal=1, rgb=(196, 176, 130), rough=0.3, kind="logo", print_rgb=(60, 52, 46),
-                              chamfer_mm=2.0),
+                              round_mm=2.0, chamfer_mm=3.0),
     # weight plates and dumbbell faces carry their print as a "dark" logo: clay, printed in ivory
-    "SS_Logo_Dark": dict(rgb=(118, 101, 89), rough=0.36, kind="logo", print_rgb=(232, 226, 214), chamfer_mm=3.0),
+    "SS_Logo_Dark": dict(rgb=(118, 101, 89), rough=0.36, kind="logo", print_rgb=(232, 226, 214), round_mm=4.0,
+                         chamfer_mm=5.0),
 }
 MATERIAL_FIELDS = ["name", "kind", "metal", "rgb", "albedo", "rough", "rough_map", "bump_map", "bump", "tile_mm",
                    "ior", "coat", "coat_rough", "sheen", "sheen_rgb", "sheen_rough", "round_mm", "glow", "print_rgb",
@@ -140,7 +145,7 @@ OVERRIDES = [
 ]
 
 # the free-space zones some models draw on the floor (a flat rectangle at a treadmill, in a swatch colour or one of
-# these): not a thing, removed when flat (1 mm), simple (8 faces) and at least 300 mm both ways
+# these): not a thing, removed when flat (2.5 mm), simple (8 faces) and at least 750 mm both ways
 ZONE_MATERIALS = ["_auto_58"]
 
 DARK_LUMINANCE = 60      # a material darker than this counts as black
@@ -212,14 +217,30 @@ def dims_cm(eq):
     return sorted((b - a) / 10 for a, b in zip(eq["min"], eq["max"]))
 
 
+def to_real_size(eqs, unit_mm):
+    """The surveyed equipment at its real size: the import's meshes are in its own units (SketchUp: inches), which
+    unit_mm long are real; a piece whose meshes are at scale s in the scene is unit_mm / s times its real size (the
+    FBX import read inches at 10 mm: 2.54 times too small). Equipment merged in from elsewhere (Technogym's own Artis
+    models) is real already. Changed in place."""
+    for eq in eqs:
+        if eq.get("import") and eq.get("scale"):
+            f = unit_mm / eq["scale"]
+            eq["min"] = [v * f for v in eq["min"]]
+            eq["max"] = [v * f for v in eq["max"]]
+    return eqs
+
+
 def decide(scenes, known):
     """{scene: [(equipment, action, why)]} for every scene's equipment ({scene: [survey rows]}); twins are looked
     for in every scene."""
     rows = [(scene, eq) for scene, eqs in scenes.items() for eq in eqs]
     fin = {id(eq): finish(eq, known) for _, eq in rows}
-    creamy = [(scene, eq) for scene, eq in rows if fin[id(eq)] != "black"]
+    creamy = [(scene, eq) for scene, eq in rows if fin[id(eq)] != "black" and not eq.get("hidden")]
     out = {scene: [] for scene in scenes}
     for scene, eq in rows:
+        if eq.get("hidden"):
+            out[scene].append((eq["eq"], "remove", "hidden in its scene: put away as not needed"))
+            continue
         if fin[id(eq)] != "black":
             out[scene].append((eq["eq"], "keep", fin[id(eq)]))
             continue
@@ -228,8 +249,6 @@ def decide(scenes, known):
                      if all(abs(a - b) <= TWIN_TOLERANCE_CM for a, b in zip(d, dims_cm(e)))), None)
         if twin:
             out[scene].append((eq["eq"], "remove", f"black; in Sand Stone as {twin[1]['eq']} ({twin[0]})"))
-        elif eq.get("hidden"):
-            out[scene].append((eq["eq"], "remove", "black, and hidden in the scene: not needed"))
         else:
             out[scene].append((eq["eq"], "recolour", "black; no Sand Stone version in the scenes"))
     return out

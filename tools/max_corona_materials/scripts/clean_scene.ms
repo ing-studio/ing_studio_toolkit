@@ -11,11 +11,11 @@ fn srcRank m = (
 )
 -- objects that are the same surface at the same place: SketchUp exports a face twice (once per side, or once more
 -- in a component), triangulated alike or not, sometimes a hair apart; the two flicker in renders, in two colours when
--- their materials differ. Two objects are one when their boxes agree to RC_TOL units (about 0.4 mm on these scenes; a
--- twentieth of a small part's size) and their surfaces to RC_AREA; the lesser of the two is deleted (by its
+-- their materials differ. Two objects are one when their boxes agree to RC_TOL mm (a twentieth of a small part's
+-- size) and their surfaces to RC_AREA; the lesser of the two is deleted (by its
 -- material's name, srcRank, then the less detailed mesh). Parts that only share a box - a dumbbell's embossed number
 -- and its face, a cap and its rim - differ in surface and are kept.
-global RC_TOL = 0.15
+global RC_TOL = 0.4
 global RC_AREA = 0.02
 global RC_LOG = #()
 fn rcBetter a b = (
@@ -74,7 +74,7 @@ fn removeCoincident nodes = (
 -- bezel through its screen). Run on meshes without modifiers (the face order is the base mesh's). Returns the faces
 -- lifted; LO_LOG says where.
 global LO_LOG = #()
-global LO_CELL = 500.0          -- the grid the objects are found on (scene units)
+global LO_CELL = 1000.0         -- the grid the objects are found on (mm)
 -- a face's plane as integers: its normal (either way round, to 1/50) and its distance from the origin on two
 -- staggered grids (4 eps wide; two faces a hair apart on either side of one grid's edge meet in the other)
 fn loPlaneKeys n d eps = (
@@ -199,6 +199,23 @@ fn liftOverlaps nodes = (
 		if items[k][2] >= items[onto[k]][2] do continue
 		local bmin = B.min - [eps, eps, eps]; local bmax = B.max + [eps, eps, eps]
 		if X.min.x < bmin.x or X.min.y < bmin.y or X.min.z < bmin.z or X.max.x > bmax.x or X.max.y > bmax.y or X.max.z > bmax.z do continue
+		-- and X's other faces in the planes where it lies on B (a disc on a dumbbell's face lies partly over a groove
+		-- in it: lifting only the faces over B would leave steps between them, which render as dark lines)
+		local tx = items[k][3]
+		local hp = #()           -- #(normal, distance, up) of each plane
+		for i in hits[k] do (
+			local n = getFaceNormal tx i; local d = dot n (getVert tx (getFace tx i).x)
+			local known = false
+			for h in hp while not known do known = (dot n h[1]) > 0.999 and abs (d - h[2]) <= eps
+			if not known do append hp #(n, d, ups[k][i])
+		)
+		for i = 1 to tx.numfaces where not hits[k][i] do (
+			local n = getFaceNormal tx i; local d = dot n (getVert tx (getFace tx i).x)
+			for h in hp while not hits[k][i] do (
+				local c = dot n h[1]
+				if (c > 0.999 and abs (d - h[2]) <= eps) or (c < -0.999 and abs (d + h[2]) <= eps) do (hits[k][i] = true; ups[k][i] = h[3])
+			)
+		)
 		local nl = loLift X items[k][3] hits[k] ups[k]
 		if nl > 0 do (total += nl; append LO_LOG (X.name + " (" + nl as string + " faces) on " + B.name))
 	)

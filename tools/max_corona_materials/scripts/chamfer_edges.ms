@@ -5,22 +5,23 @@
 --                                              faces #before and #after
 -- Every edge sharper than angleDeg gets a real rounded chamfer: a Chamfer modifier at the bottom of the stack, live, so
 -- its amount can still be changed. Its size is the part's: ratio x the object's smallest dimension, at most a quarter
--- of its wall's thickness and the chamfer_mm of its Sand Stone material (SS_SPECS) - a 40 mm bar gets 4 mm, a bolt or
--- a 3 mm sheet nothing (below minMM). A Weighted Normals modifier on top keeps the flat faces flat and lets the
--- chamfer shade like a fillet.
--- A chamfer tears or folds what is not a plain solid, so only those get one: mostly flat faces (a chamfer folds along
--- coarse curves, and a TurboSmooth over it serrates it: round objects keep their TurboSmooth), one material, closed
--- but for a few open edges, every polygon convex and of few sides. Each chamfer is worked out and checked - nothing
--- torn open, no face collapsed, nothing sticking out - and taken off again when it fails. The edges left sharp are
--- still rounded in renders by Corona Round Edges (round_mm, in every Sand Stone material). Instances share the chamfer.
+-- of its wall's thickness and the chamfer_mm of its Sand Stone material (SS_SPECS) - a 40 mm bar gets 6 mm, a 3 mm
+-- sheet 0.75 mm, a bolt nothing (below minMM). A Weighted Normals modifier on top keeps the flat faces flat and lets
+-- the chamfer shade like a fillet.
+-- A chamfer tears or folds what is not a solid, so only those get one: every object but the round ones (a TurboSmooth
+-- over a chamfer serrates it: round objects keep their TurboSmooth), of one material, closed but for a few open edges,
+-- its polygons of not too many sides. Each chamfer is worked out and checked - nothing torn open, no face collapsed or
+-- folded, nothing sticking out - and taken off again when it fails: the check, not a guess about the shape, decides.
+-- The edges left sharp are still rounded in renders by Corona Round Edges (round_mm, in every Sand Stone material).
+-- Instances share the chamfer.
 global CE_KEYS = #(#chamfered, #small, #thin, #curved, #mixed, #unclean, #smooth, #big, #failed)
 global CE_SKIPPED = #()          -- objects whose chamfer failed (names and why), for the log
 global CE_WHY_FAILED = ""        -- why the last chamfer checked was not sound
 global CE_MAX_FACES = 100000     -- bigger meshes are well-made (or too big to check): left as they are
 global CE_MAX_RATIO = 12.0       -- a chamfer that multiplies the faces more than this: too many small edges
-global CE_MAX_CURVED = 0.15      -- objects with more curved surface (of their area, srCurvedShare) are round
+global CE_MAX_CURVED = SR_ROUND_SHARE  -- objects with more curved surface (of their area, srCurvedShare) are round
 global CE_MAX_OPEN = 0.1         -- meshes with more open edges (of all their edges) are surfaces, not solids
-global CE_MAX_SIDES = 12         -- polygons with more sides (a disc's cap, a face around a hole) collapse
+global CE_MAX_SIDES = 40         -- polygons with more sides (a big disc's cap) collapse
 
 fn ceArea tm = (local a = 0.0; for i = 1 to tm.numfaces do a += meshop.getFaceArea tm i; a)
 
@@ -58,7 +59,8 @@ fn ceOneMaterial o tm = (
 
 -- the mesh's shape when a chamfer can work on it, #(open edges, area, length of the edges sharper than angleDeg), or
 -- undefined: too many open edges, an edge or a vertex shared by separate surfaces (3ds Max splits those when the mesh
--- becomes a poly, which the Chamfer modifier works on), or a polygon concave or of many sides
+-- becomes a poly, which the Chamfer modifier works on), or a polygon of many sides. (Concave polygons - a plate's
+-- notch, a face around a hole - mostly chamfer well; when one does not, the check after the chamfer finds it.)
 fn ceShape tm angleDeg = (
 	local nOpen = (meshop.getOpenEdges tm).numberSet
 	if nOpen > CE_MAX_OPEN * 1.5 * tm.numfaces do return undefined
@@ -67,18 +69,7 @@ fn ceShape tm angleDeg = (
 	convertToPoly t
 	local ok = polyop.getNumVerts t == used
 	local nPoly = polyop.getNumFaces t
-	for f = 1 to nPoly while ok do (
-		local deg = polyop.getFaceDeg t f
-		if deg > CE_MAX_SIDES then ok = false
-		else if deg > 3 do (
-			local vs = for v in polyop.getFaceVerts t f collect polyop.getVert t v
-			local n = polyop.getFaceNormal t f
-			for i = 1 to deg while ok do (
-				local a = vs[i]; local b = vs[1 + (mod i deg)]; local c = vs[1 + (mod (i + 1) deg)]
-				if (dot (cross (b - a) (c - b)) n) < -1e-6 * (length (b - a)) * (length (c - b)) do ok = false
-			)
-		)
-	)
+	for f = 1 to nPoly while ok do if polyop.getFaceDeg t f > CE_MAX_SIDES do ok = false
 	local hardLen = 0.0
 	if ok do (
 		local normals = for f = 1 to nPoly collect polyop.getFaceNormal t f
@@ -144,6 +135,7 @@ fn ceRemove o mods = for m in mods do (local i = findItem o.modifiers m; if i > 
 -- why an object keeps its edges (a key of CE_KEYS), or #(#chamfer, amount, shape)
 fn ceWhy o tm angleDeg ratio minMM = (
 	if tm.numfaces > CE_MAX_FACES or srAuthored tm do return #(#big)
+	for m in o.modifiers where classof m == TurboSmooth do return #(#curved)   -- (a round object: smooth_rounds.ms)
 	if o.material == undefined do return #(#small)   -- (no material: no chamfer_mm)
 	local mtl = ceOneMaterial o tm
 	if mtl == undefined do return #(#mixed)

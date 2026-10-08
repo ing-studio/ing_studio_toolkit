@@ -2,8 +2,9 @@
 -- is only read: a floor, a showroom light (soft sun and sky) and cameras are added for the renders, never saved.
 -- Run by corona_materials.bat, which defines:
 --   ING_SCENE      the re-finished scene (.max)
---   ING_PREVIEW    the image prefix: <prefix>_overview.jpg, <prefix>_<equipment>.jpg
---   ING_CLOSEUPS   a text file: one equipment name per line (rendered alone, close up); may be missing
+--   ING_PREVIEW    the folder of the images (ends with \)
+--   ING_VIEWS      a text file: one image per line, its name \t the node to show (alone, with everything under it):
+--                  a scene's dummy (all its equipment; wide) or one equipment (close up; square)
 --   ING_PASSES     Corona passes per image
 --   ING_WIDTH      image width in pixels
 --   ING_LOG        the log to write; its last line is DONE or ERROR: ...
@@ -61,24 +62,25 @@ fn previewMain = (
 		r.progressive_passLimit = ING_PASSES
 		r.denoise_filterType = 2
 		ssSetExposure r -4.0
-		-- the whole scene
-		local cam = frameBox bb 40 1.6
-		render camera:cam outputwidth:ING_WIDTH outputheight:((ING_WIDTH / 1.6) as integer) outputfile:(ING_PREVIEW + "_overview.jpg") vfb:false quiet:true
-		lg ("saved " + ING_PREVIEW + "_overview.jpg")
-		delete cam
-		-- close-ups: each named equipment alone
-		local names = if ING_CLOSEUPS != undefined and doesFileExist ING_CLOSEUPS then filterString ((dotNetClass "System.IO.File").ReadAllText ING_CLOSEUPS) "\r\n" else #()
-		for nm in names do (
-			local E = getNodeByName nm
-			if not isValidNode E do (lg ("not in the scene: " + nm); continue)
-			local mine = for o in allDescendants E where superclassof o == GeometryClass collect o
+		local views = if ING_VIEWS != undefined and doesFileExist ING_VIEWS then filterString ((dotNetClass "System.IO.File").ReadAllText ING_VIEWS) "\r\n" else #()
+		for v in views do (
+			local f = filterString v "\t"
+			if f.count < 2 do continue
+			local N = getNodeByName f[2] exact:true
+			if not isValidNode N do (lg ("not in the scene: " + f[2]); continue)
+			local mine = for o in allDescendants N where superclassof o == GeometryClass collect o
+			if mine.count == 0 do continue
 			hide geo
 			unhide mine
 			local eb = boxOf mine
 			fl.pos.z = eb[1].z - 1
-			local c = frameBox eb 32 1.0
-			local out = ING_PREVIEW + "_" + safeName nm + ".jpg"
-			render camera:c outputwidth:(ING_WIDTH * 0.75) outputheight:(ING_WIDTH * 0.75) outputfile:out vfb:false quiet:true
+			-- a scene's dummy (at the top of the scene): all its equipment, wide; one equipment: close up, square
+			local wide = N.parent == undefined
+			local w = (if wide then ING_WIDTH else ING_WIDTH * 0.75) as integer
+			local h = (if wide then ING_WIDTH / 1.6 else ING_WIDTH * 0.75) as integer
+			local c = frameBox eb (if wide then 40 else 32) (w as float / h)
+			local out = ING_PREVIEW + safeName f[1] + ".jpg"
+			render camera:c outputwidth:w outputheight:h outputfile:out vfb:false quiet:true
 			delete c
 			lg ("saved " + out)
 		)
